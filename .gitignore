@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.log
+showcase_data.sql
+
+# Next.js
+node_modules/
+.next/
+out/
+
+# Environment — never commit secrets
+.env.local
+
+# VSCode
+.vscode/
+
