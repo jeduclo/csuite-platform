@@ -16,3 +16,6 @@ out/
 # VSCode
 .vscode/
 
+
+.vercel
+.env*
