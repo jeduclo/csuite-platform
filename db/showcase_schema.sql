@@ -273,6 +273,7 @@ CREATE TABLE intel.decision_alerts (
 -- ────────────────────────────────────────────────────────────
 
 -- 1. Executive Action Queue
+GO
 CREATE OR ALTER VIEW pbi.vw_executive_action_queue AS
 SELECT
     a.alert_id,
@@ -291,6 +292,7 @@ FROM intel.decision_alerts a
 WHERE a.status = 'ACTIVE';
 
 -- 2. Macro Intelligence
+GO
 CREATE OR ALTER VIEW pbi.vw_macro_intelligence AS
 SELECT
     s.obs_date,
@@ -314,6 +316,7 @@ LEFT JOIN macro.economic_indicators inv
     ON inv.obs_date = s.obs_date AND inv.metric_key = 'STATCAN_MFG_INVENTORY';
 
 -- 3. P&L Intelligence  (actuals vs. budget, variance, EBITDA)
+GO
 CREATE OR ALTER VIEW pbi.vw_pl_intelligence AS
 WITH actuals AS (
     SELECT
@@ -362,6 +365,7 @@ JOIN dim.entities e
     ON e.entity_id = ac.entity_id;
 
 -- 4. Credit Risk Intelligence
+GO
 CREATE OR ALTER VIEW pbi.vw_credit_risk_intelligence AS
 SELECT
     p.customer_id,
@@ -399,6 +403,7 @@ LEFT JOIN (
 ) dso ON dso.customer_id = p.customer_id;
 
 -- 5. Cash Flow Intelligence
+GO
 CREATE OR ALTER VIEW pbi.vw_cash_flow_intelligence AS
 SELECT
     f.entity_id,
@@ -424,6 +429,7 @@ CROSS APPLY (
 ) s;
 
 -- 6. Operations Intelligence
+GO
 CREATE OR ALTER VIEW pbi.vw_operations_intelligence AS
 SELECT
     ir.product_category,
@@ -445,6 +451,7 @@ LEFT JOIN intel.elasticity_classification ec
     ON ec.product_category = ir.product_category;
 
 -- 7. Macro History (sparklines — 28 months of signal data)
+GO
 CREATE OR ALTER VIEW pbi.vw_macro_history AS
 SELECT
     s.obs_date,
