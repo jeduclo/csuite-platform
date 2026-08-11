@@ -4,11 +4,11 @@ import { useState } from "react";
 import PowerBIEmbed from "./PowerBIEmbed";
 
 const PERSONAS = [
-  { key: "action_queue", label: "Action Queue", description: "All active alerts across the portfolio — severity-sorted by financial impact", icon: "🚨", page: "ActionQueue" },
-  { key: "ceo",          label: "CEO — Macro",  description: "Business cycle phase, sector rotation, capital allocation posture", icon: "📊", page: "CEO - Macro" },
-  { key: "cfo",          label: "CFO — Cash",   description: "Probabilistic 90-day cash outlook, yield curve treasury action, FX sensitivity", icon: "💰", page: "CFO" },
-  { key: "cro",          label: "CRO — Credit", description: "60-day default probabilities, SHAP drivers, ECL stress scenarios", icon: "⚠️", page: "CRO - Credit Risk" },
-  { key: "coo",          label: "COO — Ops",    description: "Inventory optimisation, price elasticity, DPO trend, cash conversion cycle", icon: "⚙️", page: "COO - Operations" },
+  { key: "action_queue", label: "Action Queue", description: "All active alerts across the portfolio — severity-sorted by financial impact", icon: "🚨", page: "b492d195802336a0808b" },
+  { key: "ceo",          label: "CEO — Macro",  description: "Business cycle phase, sector rotation, capital allocation posture", icon: "📊", page: "53abf809c19081243abc" },
+  { key: "cfo",          label: "CFO — Cash",   description: "Probabilistic 90-day cash outlook, yield curve treasury action, FX sensitivity", icon: "💰", page: "b9463130108c2850bad6" },
+  { key: "cro",          label: "CRO — Credit", description: "60-day default probabilities, SHAP drivers, ECL stress scenarios", icon: "⚠️", page: "59350ee4040a00059203" },
+  { key: "coo",          label: "COO — Ops",    description: "Inventory optimisation, price elasticity, DPO trend, cash conversion cycle", icon: "⚙️", page: "96081fb3e525094068d0" },
 ];
 
 export default function PersonaTabs() {
