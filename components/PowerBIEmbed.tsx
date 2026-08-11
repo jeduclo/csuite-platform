@@ -72,19 +72,39 @@ export default function PowerBIEmbed({ persona, pageName }: Props) {
           },
         };
 
+        // Only set pageName if provided
         if (pageName) config.pageName = pageName;
 
+        console.log("Embedding with config:", {
+          id: config.id,
+          embedUrl: config.embedUrl,
+          pageName: config.pageName,
+          tokenType: config.tokenType,
+        });
+
         reportRef.current = pbi.embed(containerRef.current, config);
-        reportRef.current.on("loaded", () => { if (!cancelled) setLoading(false); });
-        reportRef.current.on("error",  (e: any) => {
-          console.error("Power BI embed error:", e.detail);
+
+        reportRef.current.on("loaded", () => {
+          console.log("✅ Report loaded successfully");
+          if (!cancelled) setLoading(false);
+        });
+
+        reportRef.current.on("error", (e: any) => {
+          const detail = JSON.stringify(e.detail, null, 2);
+          console.error("❌ Power BI embed error detail:", detail);
           if (!cancelled) {
-            setError("Report failed to load — " + JSON.stringify(e.detail));
+            setError(detail);
             setLoading(false);
           }
         });
+
+        reportRef.current.on("rendered", () => {
+          console.log("✅ Report rendered");
+        });
+
       } catch (err: any) {
         if (!cancelled) {
+          console.error("❌ Embed exception:", err);
           setError(err.message ?? "Embed error");
           setLoading(false);
         }
@@ -103,8 +123,8 @@ export default function PowerBIEmbed({ persona, pageName }: Props) {
         </div>
       )}
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg">
-          <p className="text-red-600 text-sm text-center px-4">{error}</p>
+        <div className="absolute inset-0 flex items-start justify-start bg-red-50 rounded-lg p-4 overflow-auto">
+          <pre className="text-red-600 text-xs">{error}</pre>
         </div>
       )}
       <div
