@@ -68,43 +68,27 @@ export default function PowerBIEmbed({ persona, pageName }: Props) {
           settings: {
             navContentPaneEnabled: false,
             filterPaneEnabled:     false,
-            background:            2,
           },
         };
 
-        // Only set pageName if provided
         if (pageName) config.pageName = pageName;
-
-        console.log("Embedding with config:", {
-          id: config.id,
-          embedUrl: config.embedUrl,
-          pageName: config.pageName,
-          tokenType: config.tokenType,
-        });
 
         reportRef.current = pbi.embed(containerRef.current, config);
 
         reportRef.current.on("loaded", () => {
-          console.log("✅ Report loaded successfully");
           if (!cancelled) setLoading(false);
         });
 
         reportRef.current.on("error", (e: any) => {
-          const detail = JSON.stringify(e.detail, null, 2);
-          console.error("❌ Power BI embed error detail:", detail);
+          console.error("Power BI error:", e.detail);
           if (!cancelled) {
-            setError(detail);
+            setError(JSON.stringify(e.detail));
             setLoading(false);
           }
         });
 
-        reportRef.current.on("rendered", () => {
-          console.log("✅ Report rendered");
-        });
-
       } catch (err: any) {
         if (!cancelled) {
-          console.error("❌ Embed exception:", err);
           setError(err.message ?? "Embed error");
           setLoading(false);
         }
