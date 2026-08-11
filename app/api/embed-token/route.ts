@@ -11,6 +11,7 @@ const REPORT_IDS: Record<string, string> = {
   cfo:          process.env.POWERBI_REPORT_ID_CFO!,
   cro:          process.env.POWERBI_REPORT_ID_CRO!,
   coo:          process.env.POWERBI_REPORT_ID_COO!,
+  pl:           process.env.POWERBI_REPORT_ID_ACTION_QUEUE!, // same report, different page
 };
 
 async function getAzureADToken(): Promise<string> {
@@ -42,10 +43,7 @@ async function getEmbedToken(
     `https://api.powerbi.com/v1.0/myorg/groups/${WORKSPACE_ID}/reports/${reportId}/GenerateToken`,
     {
       method:  "POST",
-      headers: {
-        Authorization:  `Bearer ${aadToken}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${aadToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ accessLevel: "View" }),
     }
   );
@@ -64,7 +62,6 @@ export async function GET(req: NextRequest) {
   try {
     const aadToken = await getAzureADToken();
     const { token, expiry, embedUrl } = await getEmbedToken(aadToken, reportId);
-
     return NextResponse.json(
       { token, expiry, embedUrl, reportId },
       { headers: { "Cache-Control": "private, max-age=3300" } }
