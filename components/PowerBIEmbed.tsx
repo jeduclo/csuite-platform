@@ -3,20 +3,34 @@
 import { useEffect, useRef, useState } from "react";
 
 declare global {
-  interface Window {
-    powerbi: any;
-  }
+  interface Window { powerbi: any; }
 }
 
 interface EmbedData {
-  token:    string;
+  token: string;
   embedUrl: string;
   reportId: string;
 }
 
 interface Props {
-  persona:   string;
+  persona: string;
   pageName?: string;
+}
+
+function waitForPowerBI(timeout = 10000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      if (typeof window !== "undefined" && window.powerbi) {
+        resolve(window.powerbi);
+      } else if (Date.now() - start > timeout) {
+        reject(new Error("Power BI library failed to load"));
+      } else {
+        setTimeout(check, 100);
+      }
+    };
+    check();
+  });
 }
 
 export default function PowerBIEmbed({ persona, pageName }: Props) {
@@ -33,15 +47,17 @@ export default function PowerBIEmbed({ persona, pageName }: Props) {
       setError(null);
 
       try {
-        const res  = await fetch(`/api/embed-token?persona=${persona}`);
+        const [pbi, res] = await Promise.all([
+          waitForPowerBI(),
+          fetch(`/api/embed-token?persona=${persona}`)
+        ]);
+
         if (!res.ok) throw new Error("Token fetch failed");
         const data: EmbedData = await res.json();
 
         if (cancelled || !containerRef.current) return;
 
-        if (reportRef.current) {
-          window.powerbi.reset(containerRef.current);
-        }
+        if (reportRef.current) pbi.reset(containerRef.current);
 
         const config: any = {
           type:        "report",
@@ -58,12 +74,14 @@ export default function PowerBIEmbed({ persona, pageName }: Props) {
 
         if (pageName) config.pageName = pageName;
 
-        reportRef.current = window.powerbi.embed(containerRef.current, config);
-        reportRef.current.on("loaded", () => setLoading(false));
+        reportRef.current = pbi.embed(containerRef.current, config);
+        reportRef.current.on("loaded", () => { if (!cancelled) setLoading(false); });
         reportRef.current.on("error",  (e: any) => {
           console.error("Power BI embed error:", e.detail);
-          setError("Report failed to load. Please refresh.");
-          setLoading(false);
+          if (!cancelled) {
+            setError("Report failed to load — " + JSON.stringify(e.detail));
+            setLoading(false);
+          }
         });
       } catch (err: any) {
         if (!cancelled) {
@@ -86,7 +104,7 @@ export default function PowerBIEmbed({ persona, pageName }: Props) {
       )}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg">
-          <p className="text-red-600 text-sm">{error}</p>
+          <p className="text-red-600 text-sm text-center px-4">{error}</p>
         </div>
       )}
       <div
