@@ -11,7 +11,8 @@ const REPORT_IDS: Record<string, string> = {
   cfo:          process.env.POWERBI_REPORT_ID_CFO!,
   cro:          process.env.POWERBI_REPORT_ID_CRO!,
   coo:          process.env.POWERBI_REPORT_ID_COO!,
-  pl:           process.env.POWERBI_REPORT_ID_ACTION_QUEUE!, // same report, different page
+  pl:           process.env.POWERBI_REPORT_ID_ACTION_QUEUE!,
+  cfo_intel:    process.env.POWERBI_REPORT_ID_CFO_INTEL!,
 };
 
 async function getAzureADToken(): Promise<string> {
@@ -38,7 +39,6 @@ async function getEmbedToken(
   );
   const reportData = await reportRes.json();
   const embedUrl   = reportData.embedUrl;
-
   const tokenRes = await fetch(
     `https://api.powerbi.com/v1.0/myorg/groups/${WORKSPACE_ID}/reports/${reportId}/GenerateToken`,
     {
@@ -54,11 +54,9 @@ async function getEmbedToken(
 export async function GET(req: NextRequest) {
   const persona  = req.nextUrl.searchParams.get("persona") ?? "action_queue";
   const reportId = REPORT_IDS[persona];
-
   if (!reportId) {
     return NextResponse.json({ error: "Unknown persona" }, { status: 400 });
   }
-
   try {
     const aadToken = await getAzureADToken();
     const { token, expiry, embedUrl } = await getEmbedToken(aadToken, reportId);

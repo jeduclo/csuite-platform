@@ -10,6 +10,7 @@ export default function NavBar() {
         <Link href="/" className="hover:text-slate-900">Home</Link>
         <Link href="/dashboard" className="hover:text-slate-900">Dashboard</Link>
         <Link href="/methodology" className="hover:text-slate-900">Methodology</Link>
+        <Link href="/cfo" className="hover:text-slate-900 font-medium text-blue-700">CFO App</Link>
       </div>
     </nav>
   );
