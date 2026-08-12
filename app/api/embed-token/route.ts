@@ -12,7 +12,7 @@ const REPORT_IDS: Record<string, string> = {
   cro:          process.env.POWERBI_REPORT_ID_CRO!,
   coo:          process.env.POWERBI_REPORT_ID_COO!,
   pl:           process.env.POWERBI_REPORT_ID_ACTION_QUEUE!,
-  cfo_intel:    process.env.POWERBI_REPORT_ID_CFO_INTEL!,
+  cfo_intel:    "a0e2d87d-380c-4fb3-a9fc-567c01e070e9",
 };
 
 async function getAzureADToken(): Promise<string> {
