@@ -1,971 +1,663 @@
 """
-CFO Intelligence App — Plotly Dash
-Replicates all 8 Power BI pages with matching charts and KPI cards.
+CFO Intelligence App — Plotly Dash (Parquet / Demo Edition)
+6 CFO pages, light white/grey theme, zero DB dependency
 """
-
 import os
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from dash import Dash, dcc, html, Input, Output, ctx, ALL
-import sqlalchemy
-from datetime import datetime
+from dash import Dash, dcc, html, Input, Output
 
-# ── DB ────────────────────────────────────────────────────────────────────────
+# ── DATA DIRECTORY ────────────────────────────────────────────────────────────
+DATA = os.path.join(os.path.dirname(__file__), "data")
 
-_raw_url = os.environ.get("DATABASE_URL", "")
-import re as _re
-_m = _re.match(r"mssql\+pyodbc://([^:]+):([^@]+)@([^/]+)/([^?]+)", _raw_url)
-if _m:
-    _user, _pwd, _host, _db = _m.groups()
-    from urllib.parse import unquote as _unquote
-    _pwd = _unquote(_pwd)
-    DATABASE_URL = f"mssql+pymssql://{_user}:{_pwd}@{_host}/{_db}"
-else:
-    DATABASE_URL = _raw_url
+def load(name):
+    return pd.read_parquet(os.path.join(DATA, f"{name}.parquet"))
 
-def get_engine():
-    return sqlalchemy.create_engine(DATABASE_URL, connect_args={"timeout": 15})
+# ── PRELOAD ALL DATA ──────────────────────────────────────────────────────────
+gl       = load("gl")
+ar       = load("ar")
+ap       = load("ap")
+cb       = load("cash_burn")
+cov      = load("covenant")
+fcast    = load("forecast")
+budget   = load("budget")
 
-def query(sql: str) -> pd.DataFrame:
-    try:
-        with get_engine().connect() as conn:
-            result = conn.execute(sqlalchemy.text(sql))
-            rows = result.fetchall()
-            cols = result.keys()
-            import decimal
-            converted = []
-            for row in rows:
-                converted.append([
-                    float(v) if isinstance(v, decimal.Decimal) else v
-                    for v in row
-                ])
-            return pd.DataFrame(converted, columns=list(cols))
-    except Exception as e:
-        print(f"DB error: {e}")
-        return pd.DataFrame()
-
-# ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
-
-NAVY    = "#F8FAFC"
-NAVY2   = "#FFFFFF"
-BLUE    = "#1E3A8A"
-BLUE2   = "#2563EB"
+# ── DESIGN TOKENS (light theme) ───────────────────────────────────────────────
+BG      = "#F8FAFC"
+CARD    = "#FFFFFF"
+NAVY    = "#1E3A8A"
+BLUE    = "#2563EB"
+LBLUE   = "#4472C4"
 SLATE   = "#64748B"
-LIGHT   = "#0F172A"
+DARK    = "#0F172A"
 GREEN   = "#059669"
 AMBER   = "#D97706"
 RED     = "#DC2626"
-LBLUE   = "#4472C4"
-PURPLE  = "#7C3AED"
-TEAL    = "#0D9488"
-PINK    = "#DB2777"
+GREY    = "#E2E8F0"
 
-FONT    = "Inter, -apple-system, BlinkMacSystemFont, sans-serif"
+PLOT_BG = "#FFFFFF"
+GRID    = "#F1F5F9"
 
-BASE_LAYOUT = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family=FONT, color="#475569", size=11),
-    margin=dict(l=48, r=20, t=44, b=44),
-    xaxis=dict(gridcolor="#F1F5F9", showline=False, zeroline=False,
-               tickfont=dict(size=10), title_font=dict(size=11)),
-    yaxis=dict(gridcolor="#F1F5F9", showline=False, zeroline=False,
-               tickfont=dict(size=10), title_font=dict(size=11)),
-    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=10), orientation="h",
-                yanchor="bottom", y=1.02, xanchor="left", x=0),
-    hovermode="x unified",
-    hoverlabel=dict(bgcolor="#FFFFFF", font_size=11, font_family=FONT, font_color="#0F172A"),
-)
+PAGES = [
+    ("cfo1", "Financial Velocity"),
+    ("cfo2", "Working Capital"),
+    ("cfo3", "Solvency & Debt"),
+    ("cfo4", "Unit Economics"),
+    ("cfo5", "13-Week Cash Forecast"),
+    ("cfo6", "Strategic Model"),
+]
 
-# ── UI HELPERS ────────────────────────────────────────────────────────────────
+SUBTITLES = {
+    "cfo1": "Is the business generating cash efficiently?",
+    "cfo2": "How efficiently are we managing the cash conversion cycle?",
+    "cfo3": "Are we solvent and within our covenants?",
+    "cfo4": "Are our margins healthy?",
+    "cfo5": "Do we have a cash problem in the next quarter?",
+    "cfo6": "Is the business structurally healthy for the next 12 months?",
+}
 
-def kpi(value, label, color=LBLUE, size="26px"):
+# ── APP ───────────────────────────────────────────────────────────────────────
+app = Dash(__name__, suppress_callback_exceptions=True)
+server = app.server  # gunicorn entry point
+
+# ── LAYOUT HELPERS ────────────────────────────────────────────────────────────
+def kpi_card(label, value, color=NAVY):
     return html.Div([
-        html.Div(value, style={"fontSize": size, "fontWeight": "700", "color": color,
-                               "fontFamily": "monospace", "lineHeight": "1.1"}),
-        html.Div(label, style={"fontSize": "10px", "color": SLATE, "textTransform": "uppercase",
-                               "letterSpacing": "0.07em", "marginTop": "6px"}),
-    ], style={"background": "#FFFFFF", "border": "1px solid #E2E8F0",
-              "borderRadius": "10px", "padding": "16px 20px", "flex": "1", "minWidth": "140px",
-              "boxShadow": "0 1px 3px rgba(0,0,0,0.06)"})
+        html.Div(value, style={"fontSize":"28px","fontWeight":"800","color":color,"marginBottom":"4px"}),
+        html.Div(label, style={"fontSize":"11px","fontWeight":"600","color":SLATE,"letterSpacing":"0.08em","textTransform":"uppercase"}),
+    ], style={"background":CARD,"borderRadius":"10px","padding":"20px 24px",
+              "flex":"1","boxShadow":"0 1px 3px rgba(0,0,0,0.07)","border":f"1px solid {GREY}"})
 
-def kpi_row(cards):
-    return html.Div(cards, style={"display": "flex", "gap": "14px", "flexWrap": "wrap", "marginBottom": "20px"})
-
-def chart_title(title):
-    return html.Div(title, style={"fontSize": "12px", "fontWeight": "600", "color": BLUE,
-                                  "marginBottom": "8px", "paddingBottom": "6px",
-                                  "borderBottom": "1px solid #E2E8F0"})
-
-def chart_box(title, fig, half=False):
+def chart_card(title, fig, height=340):
     return html.Div([
-        chart_title(title),
-        dcc.Graph(figure=fig, config={"displayModeBar": False},
-                  style={"height": "260px"}),
-    ], style={"flex": "1 1 45%" if half else "1 1 100%", "minWidth": "300px",
-              "background": "#FFFFFF", "borderRadius": "10px",
-              "padding": "16px", "border": "1px solid #E2E8F0",
-              "boxShadow": "0 1px 3px rgba(0,0,0,0.06)"})
+        html.Div(title, style={"fontSize":"13px","fontWeight":"700","color":NAVY,"marginBottom":"12px"}),
+        dcc.Graph(figure=fig, config={"displayModeBar":False},
+                  style={"height":f"{height}px"}),
+    ], style={"background":CARD,"borderRadius":"10px","padding":"20px 24px",
+              "boxShadow":"0 1px 3px rgba(0,0,0,0.07)","border":f"1px solid {GREY}"})
 
-def charts_row(children):
-    return html.Div(children, style={"display": "flex", "gap": "16px", "flexWrap": "wrap", "marginBottom": "16px"})
+def base_layout():
+    return dict(
+        paper_bgcolor=PLOT_BG, plot_bgcolor=PLOT_BG,
+        font=dict(family="Inter, system-ui, sans-serif", size=11, color=DARK),
+        margin=dict(l=10, r=10, t=10, b=10),
+        xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=10)),
+        yaxis=dict(gridcolor=GRID, zeroline=False, tickfont=dict(size=10)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+                    font=dict(size=10)),
+        hovermode="x unified",
+    )
 
-def page_header(num, title, question):
+# ── SIDEBAR ───────────────────────────────────────────────────────────────────
+def sidebar(active):
+    links = []
+    for pid, label in PAGES:
+        is_active = pid == active
+        links.append(html.Div(
+            label,
+            id={"type":"nav","index":pid},
+            n_clicks=0,
+            style={
+                "padding":"10px 16px","cursor":"pointer","borderRadius":"6px",
+                "fontSize":"13px","fontWeight":"600" if is_active else "400",
+                "color":BLUE if is_active else DARK,
+                "background":"#EFF6FF" if is_active else "transparent",
+                "borderLeft":f"3px solid {BLUE}" if is_active else "3px solid transparent",
+                "marginBottom":"2px","transition":"all 0.15s",
+            }
+        ))
     return html.Div([
         html.Div([
-            html.Span(f"CFO {num}", style={"fontSize": "11px", "color": BLUE, "fontWeight": "700",
-                                           "letterSpacing": "0.08em", "textTransform": "uppercase"}),
-            html.H2(title, style={"fontSize": "18px", "fontWeight": "800", "color": "#0F172A",
-                                  "margin": "4px 0 0", "letterSpacing": "-0.01em"}),
-        ]),
-        html.Div(question, style={"fontSize": "12px", "color": SLATE, "fontStyle": "italic",
-                                  "alignSelf": "flex-end"}),
-    ], style={"display": "flex", "justifyContent": "space-between", "alignItems": "flex-start",
-              "marginBottom": "20px", "paddingBottom": "14px",
-              "borderBottom": "1px solid #E2E8F0"})
+            html.Div("CFO", style={"fontSize":"16px","fontWeight":"900","color":NAVY,"letterSpacing":"0.05em"}),
+            html.Div("INTELLIGENCE APP", style={"fontSize":"9px","fontWeight":"600","color":SLATE,"letterSpacing":"0.15em"}),
+        ], style={"padding":"20px 16px 16px","borderBottom":f"1px solid {GREY}","marginBottom":"12px"}),
+        html.Div(links, style={"padding":"0 8px"}),
+        html.Div([
+            html.Div("LAST REFRESHED", style={"fontSize":"9px","color":SLATE,"fontWeight":"600","letterSpacing":"0.08em"}),
+            html.Div(datetime.now().strftime("%b %d, %Y %H:%M"),
+                     style={"fontSize":"11px","color":DARK,"marginTop":"2px"}),
+        ], style={"position":"absolute","bottom":"24px","left":"16px"}),
+    ], style={
+        "width":"185px","minWidth":"185px","background":CARD,"height":"100vh",
+        "borderRight":f"1px solid {GREY}","position":"relative","flexShrink":"0",
+    })
 
-def empty_fig(msg="No data available"):
-    fig = go.Figure()
-    fig.add_annotation(text=msg, x=0.5, y=0.5, showarrow=False,
-                       font=dict(color=SLATE, size=13, family=FONT), xref="paper", yref="paper")
-    fig.update_layout(**BASE_LAYOUT)
-    return fig
+app.layout = html.Div([
+    dcc.Location(id="url", refresh=False),
+    dcc.Store(id="active-page", data="cfo1"),
+    html.Div([
+        html.Div(id="sidebar-container"),
+        html.Div(id="page-content", style={"flex":"1","overflowY":"auto","background":BG}),
+    ], style={"display":"flex","height":"100vh","fontFamily":"Inter, system-ui, sans-serif"}),
+], style={"margin":"0","padding":"0"})
 
-def apply_layout(fig, **kwargs):
-    layout = {**BASE_LAYOUT, **kwargs}
-    fig.update_layout(**layout)
-    return fig
+# ── PAGE HEADER ───────────────────────────────────────────────────────────────
+def page_header(num, title, subtitle):
+    return html.Div([
+        html.Div(f"CFO {num}", style={"fontSize":"11px","color":BLUE,"fontWeight":"700","letterSpacing":"0.08em","marginBottom":"4px"}),
+        html.Div([
+            html.Span(title, style={"fontSize":"22px","fontWeight":"800","color":DARK}),
+            html.Span(subtitle, style={"fontSize":"12px","color":SLATE,"fontStyle":"italic","marginLeft":"auto"}),
+        ], style={"display":"flex","alignItems":"baseline","gap":"16px","justifyContent":"space-between"}),
+    ], style={"padding":"24px 32px 16px","borderBottom":f"1px solid {GREY}","background":CARD})
 
+def page_body(*rows):
+    return html.Div(list(rows), style={"padding":"20px 32px","display":"flex","flexDirection":"column","gap":"16px"})
 
-# ── PAGE 1 — FINANCIAL VELOCITY ───────────────────────────────────────────────
+def kpi_row(*cards):
+    return html.Div(list(cards), style={"display":"flex","gap":"16px"})
 
-def page_financial_velocity():
-    df = query("""SELECT g.period_start, g.credit_amount, g.debit_amount, c.category, c.account_name
-        FROM erp.gl_ledger g
-        JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month, -28, GETDATE())""")
-    if df.empty:
-        return html.Div("No GL data available", style={"color": SLATE, "padding": "40px"})
+def chart_row(*cards):
+    return html.Div(list(cards), style={"display":"flex","gap":"16px"})
 
-    df["month"] = pd.to_datetime(df["period_start"]).dt.to_period("M").astype(str)
-    rev_df  = df[df["category"]=="Revenue"]
-    cogs_df = df[df["category"]=="COGS"]
-    opex_df = df[df["category"]=="OpEx"]
+# ═══════════════════════════════════════════════════════════════════════════════
+# CFO 1 — FINANCIAL VELOCITY
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_cfo1():
+    rev   = gl[gl.category=="Revenue"]["credit_amount"].sum()
+    cogs  = gl[gl.category=="COGS"]["debit_amount"].sum()
+    opex  = gl[gl.category=="OpEx"]["debit_amount"].sum()
+    ebitda_m = (rev - cogs - opex) / rev * 100
+    total_invoiced = ar["amount"].sum()
+    total_paid     = ar[ar.paid]["amount"].sum()
+    coll_rate = total_paid / total_invoiced * 100
 
-    rev_total  = rev_df["credit_amount"].sum()
-    opex_total = opex_df["debit_amount"].sum() + cogs_df["debit_amount"].sum()
-    cogs_total = cogs_df["debit_amount"].sum()
-    gross      = rev_total - cogs_total
-    ebitda     = rev_total - opex_total
-    ebitda_pct = ebitda / rev_total * 100 if rev_total else 0
-
-    # AR collection rate
-    df_ar = query("SELECT paid, amount FROM erp.ar_invoices")
-    if not df_ar.empty:
-        collected = df_ar[df_ar["paid"]==True]["amount"].sum()
-        total_ar  = df_ar["amount"].sum()
-        coll_rate = collected / total_ar * 100 if total_ar else 0
-    else:
-        coll_rate = 0
-
-    # ── Waterfall: margin bridge
-    wf_fig = go.Figure(go.Waterfall(
+    # Waterfall
+    fig_wf = go.Figure(go.Waterfall(
         orientation="v",
         measure=["absolute","relative","relative","total"],
         x=["Revenue","COGS","OpEx","Total"],
-        y=[rev_total/1e6, -cogs_total/1e6, -(opex_total-cogs_total)/1e6, 0],
-        connector=dict(line=dict(color="rgba(255,255,255,0.1)", width=1)),
-        increasing=dict(marker_color="#1E3A8A"),
-        decreasing=dict(marker_color="#94A3B8"),
-        totals=dict(marker_color="#2563EB"),
-        text=[f"${rev_total/1e6:.1f}M", f"-${cogs_total/1e6:.1f}M",
-              f"-${(opex_total-cogs_total)/1e6:.1f}M", f"${ebitda/1e6:.1f}M"],
-        textfont=dict(size=10, color=LIGHT),
+        y=[rev, -cogs, -opex, 0],
+        text=[f"${rev/1e6:.1f}M", f"-${cogs/1e6:.1f}M", f"-${opex/1e6:.1f}M", f"${(rev-cogs-opex)/1e6:.1f}M"],
+        textposition="outside",
+        connector=dict(line=dict(color=GREY, width=1)),
+        increasing=dict(marker=dict(color=LBLUE)),
+        decreasing=dict(marker=dict(color="#94A3B8")),
+        totals=dict(marker=dict(color=BLUE)),
     ))
-    apply_layout(wf_fig, title=None, yaxis_tickprefix="$", yaxis_ticksuffix="M",
-                 margin=dict(l=48, r=10, t=10, b=36))
+    fig_wf.update_layout(**base_layout())
+    fig_wf.update_layout(showlegend=False, yaxis_tickprefix="$", yaxis_tickformat=".2s")
 
-    # ── Revenue by account
-    rev_by_acct = rev_df.groupby("account_name")["credit_amount"].sum().nlargest(4).reset_index()
-    acct_fig = go.Figure(go.Bar(
-        x=rev_by_acct["account_name"],
-        y=rev_by_acct["credit_amount"]/1e6,
-        marker_color=BLUE, opacity=0.85,
-        text=[f"${v:.1f}M" for v in rev_by_acct["credit_amount"]/1e6],
-        textposition="outside", textfont=dict(size=10, color=LIGHT),
+    # Revenue by account
+    rev_by_acct = (gl[gl.category=="Revenue"]
+                   .groupby("account_name")["credit_amount"].sum()
+                   .sort_values(ascending=False))
+    fig_acct = go.Figure(go.Bar(
+        x=rev_by_acct.index, y=rev_by_acct.values,
+        marker_color=LBLUE,
+        text=[f"${v/1e6:.1f}M" for v in rev_by_acct.values],
+        textposition="outside",
     ))
-    apply_layout(acct_fig, margin=dict(l=48, r=10, t=10, b=80),
-                 yaxis_tickprefix="$", yaxis_ticksuffix="M",
-                 xaxis=dict(tickfont=dict(size=9), gridcolor="rgba(255,255,255,0.05)",
-                            showline=False, zeroline=False))
+    fig_acct.update_layout(**base_layout())
+    fig_acct.update_layout(showlegend=False, yaxis_tickprefix="$", yaxis_tickformat=".2s",
+                           xaxis_tickangle=-30)
 
-    # ── Monthly revenue + EBITDA margin dual-axis
-    rev_mo  = rev_df.groupby("month")["credit_amount"].sum().reset_index()
-    opex_mo = df[df["category"].isin(["OpEx","COGS"])].groupby("month")["debit_amount"].sum().reset_index()
-    merged  = rev_mo.merge(opex_mo, on="month", how="left").fillna(0)
-    merged["ebitda_pct"] = (merged["credit_amount"] - merged["debit_amount"]) / merged["credit_amount"].replace(0,1) * 100
+    # Dual-axis revenue + EBITDA margin
+    gl_m = gl.copy()
+    gl_m["period_start"] = pd.to_datetime(gl_m["period_start"])
+    rev_m  = gl_m[gl_m.category=="Revenue"].groupby("period_start")["credit_amount"].sum()
+    cogs_m = gl_m[gl_m.category=="COGS"].groupby("period_start")["debit_amount"].sum()
+    opex_m = gl_m[gl_m.category=="OpEx"].groupby("period_start")["debit_amount"].sum()
+    ebitda_pct = ((rev_m - cogs_m - opex_m) / rev_m * 100).sort_index()
+    rev_m = rev_m.sort_index()
 
-    dual_fig = make_subplots(specs=[[{"secondary_y": True}]])
-    dual_fig.add_trace(go.Bar(x=merged["month"], y=merged["credit_amount"]/1e6,
-                              name="Revenue Monthly", marker_color=BLUE, opacity=0.7), secondary_y=False)
-    dual_fig.add_trace(go.Scatter(x=merged["month"], y=merged["ebitda_pct"],
+    fig_dual = make_subplots(specs=[[{"secondary_y":True}]])
+    fig_dual.add_trace(go.Bar(x=rev_m.index, y=rev_m.values, name="Revenue Monthly",
+                              marker_color=LBLUE, opacity=0.85), secondary_y=False)
+    fig_dual.add_trace(go.Scatter(x=ebitda_pct.index, y=ebitda_pct.values,
                                   name="EBITDA Margin %", line=dict(color=GREEN, width=2),
-                                  mode="lines+markers", marker=dict(size=3)), secondary_y=True)
-    dual_fig.add_hline(y=0, line_color=RED, line_width=1, secondary_y=True)
-    apply_layout(dual_fig, margin=dict(l=48, r=48, t=10, b=48),
-                 yaxis=dict(tickprefix="$", ticksuffix="M", gridcolor="rgba(255,255,255,0.05)",
-                            showline=False, zeroline=False, tickfont=dict(size=10), title_font=dict(size=11)),
-                 yaxis2=dict(ticksuffix="%", gridcolor="rgba(0,0,0,0)", showline=False,
-                             zeroline=False, tickfont=dict(size=10)))
+                                  mode="lines"), secondary_y=True)
+    fig_dual.add_hline(y=0, line_color=RED, line_width=1, secondary_y=True)
+    fig_dual.update_layout(**base_layout())
+    fig_dual.update_layout(legend=dict(orientation="h", y=1.05))
+    fig_dual.update_yaxes(tickprefix="$", tickformat=".2s", secondary_y=False, gridcolor=GRID)
+    fig_dual.update_yaxes(ticksuffix="%", secondary_y=True, showgrid=False)
 
-    ebitda_color = GREEN if ebitda_pct > 0 else RED
     return html.Div([
-        page_header(1, "Financial Velocity", "Is the business generating cash efficiently?"),
-        kpi_row([
-            kpi(f"${rev_total/1e6:.1f}M", "Revenue YTD"),
-            kpi(f"${opex_total/1e6:.1f}M", "Total OpEx", AMBER),
-            kpi(f"{ebitda_pct:.1f}%", "EBITDA Margin %", ebitda_color),
-            kpi(f"{coll_rate:.1f}%", "Collection Rate", GREEN),
-        ]),
-        charts_row([
-            chart_box("Where is margin being lost?", wf_fig, half=True),
-            chart_box("Which accounts drive revenue?", acct_fig, half=True),
-        ]),
-        chart_box("Is our margin improving or compressing?", dual_fig),
+        page_header(1, "Financial Velocity", SUBTITLES["cfo1"]),
+        page_body(
+            kpi_row(
+                kpi_card("Revenue YTD",    f"${rev/1e6:.1f}M",   NAVY),
+                kpi_card("Total OpEx",     f"${opex/1e6:.1f}M",  AMBER),
+                kpi_card("EBITDA Margin %",f"{ebitda_m:.1f}%",   GREEN),
+                kpi_card("Collection Rate",f"{coll_rate:.1f}%",  GREEN),
+            ),
+            chart_row(
+                html.Div(chart_card("Where is margin being lost?", fig_wf), style={"flex":"1"}),
+                html.Div(chart_card("Which accounts drive revenue?", fig_acct), style={"flex":"1"}),
+            ),
+            chart_card("Is our margin improving or compressing?", fig_dual, height=300),
+        ),
     ])
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CFO 2 — WORKING CAPITAL
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_cfo2():
+    ar_out = ar[~ar.paid]["amount"].sum()
+    dso    = ar["days_past_due"].mean()
+    total_inv = ar["amount"].sum()
+    coll_rate = ar[ar.paid]["amount"].sum() / total_inv * 100
+    cash_runway = 27  # weeks, from cash_burn
 
-# ── PAGE 2 — WORKING CAPITAL ──────────────────────────────────────────────────
-
-def page_working_capital():
-    df_ar = query("""SELECT a.invoice_date, a.due_date, a.amount, a.paid, a.days_past_due, c.customer_name
-        FROM erp.ar_invoices a LEFT JOIN dim.customers c ON a.customer_id = c.customer_id""")
-    df_ap = query("SELECT invoice_date, amount, paid FROM erp.ap_invoices")
-
-    if df_ar.empty:
-        return html.Div("No AR data", style={"color": SLATE, "padding": "40px"})
-
-    df_ar["due_date"] = pd.to_datetime(df_ar["due_date"])
-    unpaid = df_ar[df_ar["paid"]==False]
-    ar_out = unpaid["amount"].sum()
-    ap_out = df_ap[df_ap["paid"]==False]["amount"].sum() if not df_ap.empty else 0
-
-    # DSO: simple days past due average
-    dso = df_ar["days_past_due"].mean() if "days_past_due" in df_ar.columns else 0
-    coll_rate = df_ar[df_ar["paid"]==True]["amount"].sum() / df_ar["amount"].sum() * 100
-
-    # Cash runway (weeks): AR outstanding / avg weekly AP burn
-    weekly_ap = df_ap["amount"].sum() / 52 if not df_ap.empty else 1
-    runway = ar_out / weekly_ap if weekly_ap else 0
-
-    # ── Scatter: customers — days past due vs AR outstanding
-    cust_risk = unpaid.groupby("customer_name").agg(
-        ar=("amount","sum"), dpd=("days_past_due","mean")).reset_index()
-    scatter_fig = go.Figure(go.Scatter(
-        x=cust_risk["dpd"], y=cust_risk["ar"]/1e6,
-        mode="markers", marker=dict(color=BLUE, size=7, opacity=0.75,
-                                    line=dict(color=LBLUE, width=0.5)),
-        hovertemplate="<b>%{text}</b><br>DPD: %{x:.0f}<br>AR: $%{y:.2f}M<extra></extra>",
-        text=cust_risk["customer_name"],
+    # Customer risk scatter
+    cust_risk = ar.groupby("customer_id").agg(
+        ar_outstanding=("amount","sum"),
+        avg_dpd=("days_past_due","mean"),
+    ).reset_index()
+    fig_scatter = go.Figure(go.Scatter(
+        x=cust_risk["avg_dpd"], y=cust_risk["ar_outstanding"]/1e6,
+        mode="markers",
+        marker=dict(color=LBLUE, size=8, opacity=0.75),
     ))
-    apply_layout(scatter_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="Average Days Past Due", yaxis_title="AR Outstanding ($M)",
-                 yaxis_tickprefix="$", yaxis_ticksuffix="M")
+    fig_scatter.update_layout(**base_layout())
+    fig_scatter.update_layout(showlegend=False,
+                               xaxis_title="Average Days Past Due",
+                               yaxis_title="AR Outstanding ($M)")
 
-    # ── AR aging buckets
-    now = pd.Timestamp.now()
-    def aging_bucket(row):
-        if row["paid"]: return None
-        dpd = row.get("days_past_due", 0) or 0
-        if dpd <= 0:   return "Current"
+    # AR aging buckets
+    def bucket(dpd):
+        if dpd == 0: return "Current"
         elif dpd <= 30: return "1-30"
         elif dpd <= 60: return "31-60"
         elif dpd <= 90: return "61-90"
-        else:           return "91+"
-    df_ar["bucket"] = df_ar.apply(aging_bucket, axis=1)
-    aging = df_ar[df_ar["bucket"].notna()].groupby("bucket")["amount"].sum()
-    bucket_order = ["Current","1-30","31-60","61-90","91+"]
-    aging = aging.reindex([b for b in bucket_order if b in aging.index])
-    aging_fig = go.Figure(go.Bar(
+        else: return "91+"
+    ar2 = ar.copy()
+    ar2["bucket"] = ar2["days_past_due"].apply(bucket)
+    aging = ar2.groupby("bucket")["amount"].sum().reindex(["Current","1-30","31-60","61-90","91+"], fill_value=0)
+    colors = [LBLUE, "#6B88D4", AMBER, "#E07B1A", RED]
+    fig_aging = go.Figure(go.Bar(
         x=aging.index, y=aging.values/1e6,
-        marker_color=[BLUE, LBLUE, AMBER, AMBER, RED][:len(aging)],
-        text=[f"${v:.1f}M" for v in aging.values/1e6],
-        textposition="outside", textfont=dict(size=10, color=LIGHT),
+        marker_color=colors,
+        text=[f"${v/1e6:.1f}M" for v in aging.values],
+        textposition="outside",
     ))
-    apply_layout(aging_fig, margin=dict(l=48, r=10, t=10, b=36),
-                 xaxis_title="aging_bucket", yaxis_tickprefix="$", yaxis_ticksuffix="M")
+    fig_aging.update_layout(**base_layout())
+    fig_aging.update_layout(showlegend=False, yaxis_tickprefix="$", yaxis_ticksuffix="M")
 
-    # ── DSO trend
-    df_ar["due_mo"] = df_ar["due_date"].dt.to_period("M").astype(str)
-    dso_trend = df_ar.groupby("due_mo")["days_past_due"].mean().reset_index()
-    dso_fig = go.Figure(go.Scatter(
-        x=dso_trend["due_mo"], y=dso_trend["days_past_due"],
-        fill="tozeroy", line=dict(color=BLUE, width=2),
-        fillcolor="rgba(37,99,235,0.12)",
-        text=[f"{v:.0f}" for v in dso_trend["days_past_due"]],
-        mode="lines+markers+text", textposition="top center",
-        textfont=dict(size=8, color=LIGHT),
+    # DSO trend by due_date month
+    ar3 = ar.copy()
+    ar3["due_date"] = pd.to_datetime(ar3["due_date"])
+    ar3["month"] = ar3["due_date"].dt.to_period("M").dt.to_timestamp()
+    dso_trend = ar3.groupby("month")["days_past_due"].mean().sort_index()
+    fig_dso = go.Figure(go.Scatter(
+        x=dso_trend.index, y=dso_trend.values,
+        fill="tozeroy", fillcolor="rgba(68,114,196,0.15)",
+        line=dict(color=LBLUE, width=2),
+        mode="lines+markers+text",
+        text=[f"{v:.0f}" for v in dso_trend.values],
+        textposition="top center",
+        textfont=dict(size=9),
     ))
-    apply_layout(dso_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="due_date", yaxis_title="DSO")
+    fig_dso.update_layout(**base_layout())
+    fig_dso.update_layout(showlegend=False, yaxis_title="DSO", xaxis_title="due_date")
 
     return html.Div([
-        page_header(2, "Working Capital & Liquidity Risk",
-                    "How efficiently are we managing the cash conversion cycle?"),
-        kpi_row([
-            kpi(f"${ar_out/1e6:.2f}M", "AR Outstanding"),
-            kpi(f"{dso:.2f}", "DSO", AMBER),
-            kpi(f"{coll_rate:.1f}%", "Collection Rate", GREEN),
-            kpi(f"{runway:.0f}", "Cash Runway Weeks", GREEN if runway > 12 else RED),
-        ]),
-        charts_row([
-            chart_box("Which customers are highest risk?", scatter_fig, half=True),
-            html.Div([
-                chart_box("Where is AR risk concentrated?", aging_fig),
-                chart_box("Are we collecting faster or slower?", dso_fig),
-            ], style={"flex":"1 1 45%","minWidth":"300px","display":"flex","flexDirection":"column","gap":"16px"}),
-        ]),
+        page_header(2, "Working Capital & Liquidity Risk", SUBTITLES["cfo2"]),
+        page_body(
+            kpi_row(
+                kpi_card("AR Outstanding",  f"${ar_out/1e6:.2f}M", NAVY),
+                kpi_card("DSO",             f"{dso:.2f}",          AMBER),
+                kpi_card("Collection Rate", f"{coll_rate:.1f}%",   GREEN),
+                kpi_card("Cash Runway Weeks",f"{cash_runway}",     RED),
+            ),
+            chart_row(
+                html.Div(chart_card("Which customers are highest risk?", fig_scatter), style={"flex":"1"}),
+                html.Div(chart_card("Where is AR risk concentrated?", fig_aging), style={"flex":"1"}),
+            ),
+            chart_card("Are we collecting faster or slower?", fig_dso, height=280),
+        ),
     ])
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CFO 3 — SOLVENCY & DEBT
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_cfo3():
+    base_cov = cov[cov.scenario=="base"]
+    dscr_current = base_cov["dscr_proxy"].iloc[-1]
+    net_debt = base_cov["net_debt"].iloc[-1]
+    total_liab = base_cov["total_liabilities"].iloc[-1]
+    ar_out = ar[~ar.paid]["amount"].sum()
 
-# ── PAGE 3 — SOLVENCY & DEBT ──────────────────────────────────────────────────
-
-def page_solvency():
-    df_cov = query("SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario FROM intel.covenant_tracker ORDER BY period")
-    df_cb = query("SELECT week_num, week_label, avg_cash_collected, avg_cash_burn FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num")
-    df_ar = query("SELECT amount FROM erp.ar_invoices WHERE paid=0")
-
-    ar_out = df_ar["amount"].sum() if not df_ar.empty else 0
-
-    if df_cov.empty:
-        return html.Div("No covenant data", style={"color": SLATE, "padding": "40px"})
-
-    base   = df_cov[df_cov["scenario"]=="base"]
-    latest = base.iloc[-1] if not base.empty else None
-    dscr   = latest["dscr_proxy"] if latest is not None else 0
-    net_d  = latest["net_debt"]   if latest is not None else 0
-    tot_l  = latest["total_liabilities"] if latest is not None else 0
-
-    # ── Grouped bar: cash collected vs burn
-    cb_fig = go.Figure()
-    if not df_cb.empty:
-        cb_fig.add_trace(go.Bar(x=df_cb["week_label"], y=df_cb["avg_cash_collected"]/1e6,
-                                name="avg_cash_collected", marker_color=BLUE, opacity=0.8))
-        cb_fig.add_trace(go.Bar(x=df_cb["week_label"], y=df_cb["avg_cash_burn"]/1e6,
-                                name="avg_cash_burn", marker_color=GREEN, opacity=0.8))
-    apply_layout(cb_fig, barmode="group", margin=dict(l=48, r=10, t=10, b=80),
-                 yaxis_tickprefix="$", yaxis_ticksuffix="M",
-                 xaxis=dict(tickfont=dict(size=8), gridcolor="rgba(255,255,255,0.05)",
-                            showline=False, zeroline=False, title="week_label"))
-
-    # ── DSCR multi-scenario line
-    dscr_fig = go.Figure()
-    colors = {"base": BLUE, "stress_100bps": LBLUE, "stress_200bps": AMBER}
-    for scen, col in colors.items():
-        d = df_cov[df_cov["scenario"]==scen]
-        if not d.empty:
-            dscr_fig.add_trace(go.Scatter(x=d["period"], y=d["dscr_proxy"],
-                                          name=scen, line=dict(color=col, width=2)))
-    dscr_fig.add_hline(y=0, line_dash="dash", line_color=RED, line_width=1.5,
-                       annotation_text="Covenant Floor", annotation_font=dict(color=RED, size=10))
-    apply_layout(dscr_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="period", yaxis_title="Sum of dscr_proxy")
-
-    # ── Covenant stress table (top 12 rows)
-    tbl_data = df_cov[["period","scenario","dscr_proxy","net_debt"]].head(20)
-    tbl = html.Div([
-        chart_title("How stressed is our covenant under rate shocks?"),
-        html.Table([
-            html.Thead(html.Tr([
-                html.Th("period", style={"color": SLATE, "fontSize":"10px","padding":"4px 8px","textAlign":"left"}),
-                html.Th("scenario", style={"color": SLATE,"fontSize":"10px","padding":"4px 8px","textAlign":"left"}),
-                html.Th("DSCR", style={"color": SLATE,"fontSize":"10px","padding":"4px 8px","textAlign":"right"}),
-                html.Th("Net Debt", style={"color": SLATE,"fontSize":"10px","padding":"4px 8px","textAlign":"right"}),
-            ])),
-            html.Tbody([
-                html.Tr([
-                    html.Td(row["period"], style={"color":"#1E293B","fontSize":"10px","padding":"3px 8px"}),
-                    html.Td(row["scenario"], style={"color":LBLUE if row["scenario"]=="base" else AMBER,
-                                                    "fontSize":"10px","padding":"3px 8px"}),
-                    html.Td(f"{row['dscr_proxy']:.2f}",
-                            style={"color": GREEN if row["dscr_proxy"]>0 else RED,
-                                   "fontSize":"10px","padding":"3px 8px","textAlign":"right","fontFamily":"monospace"}),
-                    html.Td(f"${row['net_debt']:,.0f}",
-                            style={"color":"#334155","fontSize":"10px","padding":"3px 8px",
-                                   "textAlign":"right","fontFamily":"monospace"}),
-                ]) for _, row in tbl_data.iterrows()
-            ]),
-        ], style={"width":"100%","borderCollapse":"collapse"}),
-    ], style={"background":"#FFFFFF","borderRadius":"10px","padding":"14px",
-              "border":"1px solid #E2E8F0","overflowY":"auto","maxHeight":"320px","flex":"1 1 45%","boxShadow":"0 1px 3px rgba(0,0,0,0.06)"})
-
-    dscr_color = GREEN if dscr > 0 else RED
-    return html.Div([
-        page_header(3, "Solvency & Debt", "Are we solvent and within our covenants?"),
-        kpi_row([
-            kpi(f"{dscr:.0f}", "DSCR Current", dscr_color),
-            kpi(f"${net_d/1e6:.2f}M", "Net Debt", AMBER),
-            kpi(f"${tot_l/1e6:.1f}M", "Total Liabilities", AMBER),
-            kpi(f"${ar_out/1e6:.2f}M", "AR Outstanding"),
-        ]),
-        chart_box("Are payables outpacing receivables?", cb_fig),
-        charts_row([
-            chart_box("Are we at risk of breaching our debt covenant?", dscr_fig, half=True),
-            tbl,
-        ]),
+    # Cash collected vs burn grouped bar (base only)
+    cb_base = cb[cb.scenario=="base"].sort_values("week_num")
+    fig_cash = go.Figure([
+        go.Bar(name="avg_cash_collected", x=cb_base["week_label"], y=cb_base["avg_cash_collected"]/1e6,
+               marker_color=LBLUE),
+        go.Bar(name="avg_cash_burn", x=cb_base["week_label"], y=cb_base["avg_cash_burn"]/1e6,
+               marker_color=GREEN),
     ])
+    fig_cash.update_layout(**base_layout())
+    fig_cash.update_layout(barmode="group", yaxis_tickprefix="$", yaxis_ticksuffix="M",
+                           xaxis_tickangle=-30)
 
-
-# ── PAGE 4 — UNIT ECONOMICS ───────────────────────────────────────────────────
-
-def page_unit_economics():
-    df = query("""SELECT g.period_start, g.credit_amount, g.debit_amount, c.category, c.account_name
-        FROM erp.gl_ledger g
-        JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month, -28, GETDATE())""")
-    df_fc = get_cached("forecast", "")
-    df_bud = get_cached("budget", "")
-
-    if df.empty:
-        return html.Div("No GL data", style={"color": SLATE, "padding": "40px"})
-
-    df["month"] = pd.to_datetime(df["period_start"]).dt.to_period("M").astype(str)
-    rev_mo   = df[df["category"]=="Revenue"].groupby("month")["credit_amount"].sum()
-    cogs_mo  = df[df["category"]=="COGS"].groupby("month")["debit_amount"].sum()
-    opex_mo  = df[df["category"]=="OpEx"].groupby("month")["debit_amount"].sum()
-    idx      = rev_mo.index.union(cogs_mo.index).union(opex_mo.index)
-    rev_mo   = rev_mo.reindex(idx, fill_value=0)
-    cogs_mo  = cogs_mo.reindex(idx, fill_value=0)
-    opex_mo  = opex_mo.reindex(idx, fill_value=0)
-    total_opex_mo = cogs_mo + opex_mo
-    gm_mo    = (rev_mo - cogs_mo) / rev_mo.replace(0,1) * 100
-    ebitda_mo= (rev_mo - total_opex_mo) / rev_mo.replace(0,1) * 100
-
-    gross_margin = gm_mo.mean()
-    ebitda_avg   = ebitda_mo.mean()
-    gross_profit = (rev_mo - cogs_mo).sum()
-    bud_var      = df_bud["total"].iloc[0] - rev_mo.sum() if not df_bud.empty and len(df_bud) > 0 else 0
-
-    # ── Bar: Revenue vs OpEx monthly
-    rev_opex_fig = go.Figure()
-    rev_opex_fig.add_trace(go.Bar(x=idx, y=rev_mo.values/1e6,
-                                  name="Revenue Monthly", marker_color=GREEN, opacity=0.6))
-    rev_opex_fig.add_trace(go.Bar(x=idx, y=total_opex_mo.values/1e6,
-                                  name="Opex Monthly", marker_color=BLUE, opacity=0.8))
-    apply_layout(rev_opex_fig, barmode="group", margin=dict(l=48, r=10, t=10, b=48),
-                 yaxis_tickprefix="$", yaxis_ticksuffix="M", xaxis_title="Month")
-
-    # ── Revenue forecast area
-    fc_fig = go.Figure()
-    if not df_fc.empty:
-        df_fc["forecast_month"] = pd.to_datetime(df_fc["forecast_month"]).astype(str)
-        fc_fig.add_trace(go.Scatter(
-            x=df_fc["forecast_month"], y=df_fc["revenue_forecast"]/1e6,
-            fill="tozeroy", line=dict(color=BLUE, width=2),
-            fillcolor="rgba(37,99,235,0.15)", name="P50 Forecast",
+    # DSCR multi-scenario line
+    fig_dscr = go.Figure()
+    colors_sc = {"base": NAVY, "stress_100bps": BLUE, "stress_200bps": AMBER}
+    for sc in ["base","stress_100bps","stress_200bps"]:
+        df_sc = cov[cov.scenario==sc].sort_values("period")
+        fig_dscr.add_trace(go.Scatter(
+            x=df_sc["period"], y=df_sc["dscr_proxy"],
+            name=sc, line=dict(color=colors_sc[sc], width=2), mode="lines+markers",
+            marker=dict(size=5),
         ))
-    apply_layout(fc_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="forecast_month", yaxis_title="Sum of revenue_forecast",
-                 yaxis_tickprefix="$", yaxis_ticksuffix="M")
+    fig_dscr.add_hline(y=0, line_color=RED, line_dash="dash", line_width=1.5,
+                       annotation_text="Covenant Floor", annotation_position="bottom right")
+    fig_dscr.update_layout(**base_layout())
+    fig_dscr.update_layout(yaxis_title="Sum of dscr_proxy", xaxis_title="period")
 
-    # ── Dual area: gross margin % + ebitda margin %
-    margin_fig = go.Figure()
-    margin_fig.add_trace(go.Scatter(
-        x=idx, y=gm_mo.values, name="Gross Margin %",
-        fill="tozeroy", line=dict(color=BLUE, width=2),
-        fillcolor="rgba(37,99,235,0.2)",
-    ))
-    margin_fig.add_trace(go.Scatter(
-        x=idx, y=ebitda_mo.values, name="EBITDA Margin Monthly %",
-        fill="tozeroy", line=dict(color=GREEN, width=2),
-        fillcolor="rgba(16,185,129,0.15)",
-    ))
-    margin_fig.add_hline(y=0, line_color=RED, line_width=1)
-    apply_layout(margin_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="Month", yaxis_ticksuffix="%")
+    # Stress table
+    stress_tbl = cov.sort_values(["period","scenario"])[["period","scenario","dscr_proxy","net_debt"]].head(24)
+    def color_dscr(v):
+        if v > 2: return GREEN
+        elif v > 0: return AMBER
+        else: return RED
 
-    gm_color = GREEN if gross_margin > 30 else AMBER
+    tbl_rows = [
+        html.Tr([html.Th(c, style={"padding":"6px 12px","fontSize":"11px","color":SLATE,"fontWeight":"600",
+                                    "borderBottom":f"1px solid {GREY}"})
+                 for c in ["period","scenario","DSCR","Net Debt"]])
+    ]
+    for _, row in stress_tbl.iterrows():
+        tbl_rows.append(html.Tr([
+            html.Td(row["period"],   style={"padding":"5px 12px","fontSize":"12px"}),
+            html.Td(row["scenario"], style={"padding":"5px 12px","fontSize":"12px",
+                                            "color": AMBER if "stress" in row["scenario"] else DARK}),
+            html.Td(f"{row['dscr_proxy']:.2f}", style={"padding":"5px 12px","fontSize":"12px",
+                                                         "fontWeight":"700","color":color_dscr(row["dscr_proxy"])}),
+            html.Td(f"${row['net_debt']:,.0f}", style={"padding":"5px 12px","fontSize":"12px"}),
+        ]))
+
+    stress_table_card = html.Div([
+        html.Div("How stressed is our covenant under rate shocks?",
+                 style={"fontSize":"13px","fontWeight":"700","color":NAVY,"marginBottom":"12px"}),
+        html.Div(
+            html.Table(tbl_rows, style={"width":"100%","borderCollapse":"collapse"}),
+            style={"maxHeight":"320px","overflowY":"auto"},
+        ),
+    ], style={"background":CARD,"borderRadius":"10px","padding":"20px 24px",
+              "boxShadow":"0 1px 3px rgba(0,0,0,0.07)","border":f"1px solid {GREY}","flex":"1"})
+
     return html.Div([
-        page_header(4, "Unit Economics & Break-Even",
-                    "Are our margins healthy and how close are we to break-even?"),
-        kpi_row([
-            kpi(f"{gross_margin:.1f}%", "Gross Margin %", gm_color),
-            kpi(f"{ebitda_avg:.1f}%", "EBITDA Margin Monthly %", GREEN if ebitda_avg>0 else RED),
-            kpi(f"${gross_profit/1e6:.2f}M", "Gross Profit"),
-            kpi(f"${abs(bud_var)/1e6:.2f}M", "Budget Variance", AMBER),
-        ]),
-        charts_row([
-            chart_box("Is revenue growing faster than costs?", rev_opex_fig, half=True),
-            chart_box("What does our 12-month revenue outlook look like?", fc_fig, half=True),
-        ]),
-        chart_box("Is cost pressure widening our margin gap?", margin_fig),
+        page_header(3, "Solvency & Debt", SUBTITLES["cfo3"]),
+        page_body(
+            kpi_row(
+                kpi_card("DSCR Current",    f"{dscr_current:.0f}",   RED if dscr_current < 0 else GREEN),
+                kpi_card("Net Debt",        f"${net_debt/1e6:.2f}M", AMBER),
+                kpi_card("Total Liabilities",f"${total_liab/1e6:.1f}M", AMBER),
+                kpi_card("AR Outstanding",  f"${ar_out/1e6:.2f}M",  BLUE),
+            ),
+            chart_card("Are payables outpacing receivables?", fig_cash),
+            chart_row(
+                html.Div(chart_card("Are we at risk of breaching our debt covenant?", fig_dscr), style={"flex":"1"}),
+                stress_table_card,
+            ),
+        ),
     ])
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CFO 4 — UNIT ECONOMICS
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_cfo4():
+    gl4 = gl.copy()
+    gl4["period_start"] = pd.to_datetime(gl4["period_start"])
+    rev_m  = gl4[gl4.category=="Revenue"].groupby("period_start")["credit_amount"].sum().sort_index()
+    cogs_m = gl4[gl4.category=="COGS"].groupby("period_start")["debit_amount"].sum().sort_index()
+    opex_m = gl4[gl4.category=="OpEx"].groupby("period_start")["debit_amount"].sum().sort_index()
 
-# ── PAGE 5 — 13-WEEK CASH FORECAST ───────────────────────────────────────────
+    gross_margin_pct = ((rev_m - cogs_m) / rev_m * 100)
+    ebitda_pct = ((rev_m - cogs_m - opex_m) / rev_m * 100)
+    budget_amt = budget["budget_amount"].iloc[0]
+    gross_profit = (rev_m - cogs_m).sum()
+    budget_variance = rev_m.sum() - budget_amt
 
-def page_cash_forecast():
-    df = query("""
-        SELECT week_num, week_label, avg_cash_collected, avg_cash_burn, running_balance, scenario
-        FROM intel.cash_burn_weekly ORDER BY week_num
-    """)
-    df_ap = query("SELECT vendor_id, amount FROM erp.ap_invoices WHERE paid=0 ORDER BY amount DESC")
+    # Revenue vs OpEx grouped bar
+    fig_rev_opex = go.Figure([
+        go.Bar(name="Revenue Monthly", x=rev_m.index, y=rev_m.values/1e6, marker_color="#A8C4E8"),
+        go.Bar(name="Opex Monthly",    x=opex_m.index, y=opex_m.values/1e6, marker_color=LBLUE),
+    ])
+    fig_rev_opex.update_layout(**base_layout())
+    fig_rev_opex.update_layout(barmode="group", yaxis_tickprefix="$", yaxis_ticksuffix="M",
+                                xaxis_tickangle=-30)
 
-    if df.empty:
-        return html.Div("No cash forecast data", style={"color": SLATE, "padding": "40px"})
+    # 12m forecast area
+    fig_fcast = go.Figure([
+        go.Scatter(x=fcast["forecast_month"], y=fcast["upper_bound"]/1e6,
+                   fill=None, line=dict(color="rgba(68,114,196,0)"), showlegend=False),
+        go.Scatter(x=fcast["forecast_month"], y=fcast["lower_bound"]/1e6,
+                   fill="tonexty", fillcolor="rgba(68,114,196,0.12)",
+                   line=dict(color="rgba(68,114,196,0)"), name="Confidence Band"),
+        go.Scatter(x=fcast["forecast_month"], y=fcast["revenue_forecast"]/1e6,
+                   fill="tozeropy", fillcolor="rgba(68,114,196,0.2)",
+                   line=dict(color=LBLUE, width=2), name="Revenue Forecast",
+                   mode="lines+markers", marker=dict(size=5)),
+    ])
+    fig_fcast.update_layout(**base_layout())
+    fig_fcast.update_layout(yaxis_tickprefix="$", yaxis_ticksuffix="M",
+                             xaxis_title="forecast_month")
 
-    base    = df[df["scenario"]=="base"].copy()
-    wk13    = base["running_balance"].iloc[-1] if not base.empty else 0
-    burn    = base["avg_cash_burn"].mean() if not base.empty else 0
-    ar_out = query("SELECT SUM(amount) as t FROM erp.ar_invoices WHERE paid=0")
-    ar_val  = ar_out["t"].iloc[0] if not ar_out.empty else 0
-    runway  = ar_val / burn if burn > 0 else 0
+    # Margin compression dual-area
+    fig_margin = go.Figure([
+        go.Scatter(x=gross_margin_pct.index, y=gross_margin_pct.values,
+                   fill="tozeropy", fillcolor="rgba(30,58,138,0.15)",
+                   line=dict(color=NAVY, width=2), name="Gross Margin %", mode="lines"),
+        go.Scatter(x=ebitda_pct.index, y=ebitda_pct.values,
+                   fill="tozeropy", fillcolor="rgba(5,150,105,0.15)",
+                   line=dict(color=GREEN, width=2), name="EBITDA Margin Monthly %", mode="lines"),
+    ])
+    fig_margin.add_hline(y=0, line_color=RED, line_width=1)
+    fig_margin.update_layout(**base_layout())
+    fig_margin.update_layout(yaxis_ticksuffix="%", xaxis_title="Month")
 
-    # ── Triple line: collected / burn / balance
-    tri_fig = make_subplots(specs=[[{"secondary_y": True}]])
-    tri_fig.add_trace(go.Scatter(x=base["week_label"], y=base["avg_cash_collected"]/1e6,
-                                 name="avg_cash_collected", line=dict(color=LBLUE, width=2)), secondary_y=False)
-    tri_fig.add_trace(go.Scatter(x=base["week_label"], y=base["avg_cash_burn"]/1e6,
-                                 name="avg_cash_burn", line=dict(color=BLUE2, width=2)), secondary_y=False)
-    tri_fig.add_trace(go.Scatter(x=base["week_label"], y=base["running_balance"]/1e6,
-                                 name="running_balance", line=dict(color=AMBER, width=2)), secondary_y=True)
-    apply_layout(tri_fig, margin=dict(l=48, r=48, t=10, b=80),
-                 xaxis=dict(tickfont=dict(size=8), gridcolor="rgba(255,255,255,0.05)",
-                            showline=False, zeroline=False, title="week_label"),
-                 yaxis=dict(tickprefix="$", ticksuffix="M", gridcolor="rgba(255,255,255,0.05)",
-                            showline=False, zeroline=False, tickfont=dict(size=10), title_font=dict(size=11)),
-                 yaxis2=dict(tickprefix="$", ticksuffix="M", showgrid=False,
-                             showline=False, zeroline=False, tickfont=dict(size=10)))
+    return html.Div([
+        page_header(4, "Unit Economics", SUBTITLES["cfo4"]),
+        page_body(
+            kpi_row(
+                kpi_card("Gross Margin %",         f"{gross_margin_pct.mean():.1f}%",  GREEN),
+                kpi_card("EBITDA Margin Monthly %", f"{ebitda_pct.mean():.1f}%",       AMBER),
+                kpi_card("Gross Profit",            f"${gross_profit/1e6:.2f}M",       NAVY),
+                kpi_card("Budget Variance",         f"${budget_variance/1e6:.2f}M",    GREEN if budget_variance>0 else RED),
+            ),
+            chart_row(
+                html.Div(chart_card("Is revenue growing faster than costs?", fig_rev_opex), style={"flex":"1"}),
+                html.Div(chart_card("What does our 12-month revenue outlook look like?", fig_fcast), style={"flex":"1"}),
+            ),
+            chart_card("Is cost pressure widening our margin gap?", fig_margin, height=280),
+        ),
+    ])
 
-    # ── Weekly table
+# ═══════════════════════════════════════════════════════════════════════════════
+# CFO 5 — 13-WEEK CASH FORECAST
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_cfo5():
+    cb_base = cb[cb.scenario=="base"].sort_values("week_num")
+    week13_bal = cb_base["running_balance"].iloc[-1]
+    weekly_burn = cb_base["avg_cash_burn"].mean()
+    cash_runway = int(week13_bal / weekly_burn) if weekly_burn > 0 else 99
+    ar_out = ar[~ar.paid]["amount"].sum()
+
+    # Triple line chart
+    fig_triple = make_subplots(specs=[[{"secondary_y":True}]])
+    fig_triple.add_trace(go.Scatter(x=cb_base["week_label"], y=cb_base["avg_cash_collected"]/1e6,
+                                    name="avg_cash_collected", line=dict(color=BLUE, width=2),
+                                    mode="lines+markers", marker=dict(size=5)), secondary_y=False)
+    fig_triple.add_trace(go.Scatter(x=cb_base["week_label"], y=cb_base["avg_cash_burn"]/1e6,
+                                    name="avg_cash_burn", line=dict(color=LBLUE, width=2),
+                                    mode="lines+markers", marker=dict(size=5)), secondary_y=False)
+    fig_triple.add_trace(go.Scatter(x=cb_base["week_label"], y=cb_base["running_balance"]/1e6,
+                                    name="running_balance", line=dict(color=AMBER, width=2.5),
+                                    mode="lines+markers", marker=dict(size=5)), secondary_y=True)
+    fig_triple.update_layout(**base_layout())
+    fig_triple.update_layout(legend=dict(orientation="h", y=1.05))
+    fig_triple.update_yaxes(tickprefix="$", ticksuffix="M", secondary_y=False, gridcolor=GRID)
+    fig_triple.update_yaxes(tickprefix="$", ticksuffix="M", secondary_y=True, showgrid=False)
+    fig_triple.update_layout(xaxis=dict(tickangle=-30))
+
+    # Weekly data table
     tbl_cols = ["week_label","avg_cash_collected","avg_cash_burn","running_balance"]
-    tbl = html.Div([
-        chart_title("How sensitive are we to late payments?"),
-        html.Table([
-            html.Thead(html.Tr([
-                html.Th(c, style={"color":SLATE,"fontSize":"9px","padding":"4px 8px",
-                                  "textAlign":"right" if i>0 else "left"})
-                for i, c in enumerate(["week_label","avg_cash_collected","avg_cash_burn","running_balance"])
-            ])),
-            html.Tbody([
-                html.Tr([
-                    html.Td(row["week_label"], style={"color":"#1E293B","fontSize":"9px","padding":"2px 8px"}),
-                    *[html.Td(f"${row[c]:,.0f}",
-                               style={"color":"#334155","fontSize":"9px","padding":"2px 8px",
-                                      "textAlign":"right","fontFamily":"monospace"})
-                      for c in ["avg_cash_collected","avg_cash_burn","running_balance"]]
-                ]) for _, row in base.iterrows()
-            ] + [html.Tr([
-                html.Td("Total", style={"color":"#1E3A8A","fontSize":"9px","padding":"4px 8px","fontWeight":"700"}),
-                *[html.Td(f"${base[c].sum():,.0f}",
-                           style={"color":"#1E3A8A","fontSize":"9px","padding":"4px 8px",
-                                  "textAlign":"right","fontFamily":"monospace","fontWeight":"700"})
-                  for c in ["avg_cash_collected","avg_cash_burn","running_balance"]]
-            ])]),
-        ], style={"width":"100%","borderCollapse":"collapse"}),
-    ], style={"background":"#FFFFFF","borderRadius":"10px","padding":"14px",
-              "border":"1px solid #E2E8F0","flex":"1 1 45%","overflowY":"auto","boxShadow":"0 1px 3px rgba(0,0,0,0.06)"})
-
-    # ── Vendor payables bar
-    if not df_ap.empty:
-        vendor_ap = df_ap.groupby("vendor_id")["amount"].sum().nlargest(20).reset_index()
-        vend_fig = go.Figure(go.Bar(
-            x=vendor_ap["vendor_id"].astype(str), y=vendor_ap["amount"]/1e6,
-            marker_color=BLUE, opacity=0.8,
-        ))
-        apply_layout(vend_fig, margin=dict(l=48, r=10, t=10, b=60),
-                     xaxis_title="vendor_id", yaxis_tickprefix="$", yaxis_ticksuffix="M",
-                     xaxis=dict(tickfont=dict(size=8), gridcolor="rgba(255,255,255,0.05)",
-                                showline=False, zeroline=False))
-    else:
-        vend_fig = empty_fig("No AP data")
-
-    wk13_color = GREEN if wk13 > 0 else RED
-    return html.Div([
-        page_header(5, "13-Week Cash Forecast", "Do we have a cash problem in the next quarter?"),
-        kpi_row([
-            kpi(f"${wk13/1e6:.1f}M", "Week 13 Cash Balance", wk13_color),
-            kpi(f"${burn/1e3:.1f}K", "Weekly Burn Rate", AMBER),
-            kpi(f"{runway:.0f}", "Cash Runway Weeks", GREEN if runway > 12 else RED),
-            kpi(f"${ar_val/1e6:.2f}M", "AR Outstanding"),
-        ]),
-        chart_box("When does our cash balance hit the danger zone?", tri_fig),
-        charts_row([tbl, chart_box("Where are near-term payables concentrated?", vend_fig, half=True)]),
+    tbl_head = html.Tr([
+        html.Th(c, style={"padding":"6px 12px","fontSize":"11px","color":SLATE,"fontWeight":"600",
+                           "borderBottom":f"1px solid {GREY}"})
+        for c in ["week_label","avg_cash_collected","avg_cash_burn","running_balance"]
     ])
+    tbl_rows_data = [tbl_head]
+    for _, row in cb_base.iterrows():
+        tbl_rows_data.append(html.Tr([
+            html.Td(row["week_label"], style={"padding":"5px 12px","fontSize":"12px","color":BLUE,"fontWeight":"600"}),
+            html.Td(f"${row['avg_cash_collected']:,.0f}", style={"padding":"5px 12px","fontSize":"12px"}),
+            html.Td(f"${row['avg_cash_burn']:,.0f}",      style={"padding":"5px 12px","fontSize":"12px","color":AMBER}),
+            html.Td(f"${row['running_balance']:,.0f}",    style={"padding":"5px 12px","fontSize":"12px","fontWeight":"700","color":GREEN}),
+        ]))
+    # Totals row
+    tbl_rows_data.append(html.Tr([
+        html.Td("Total", style={"padding":"5px 12px","fontSize":"12px","fontWeight":"700"}),
+        html.Td(f"${cb_base['avg_cash_collected'].sum():,.0f}", style={"padding":"5px 12px","fontSize":"12px","fontWeight":"700","color":BLUE}),
+        html.Td(f"${cb_base['avg_cash_burn'].sum():,.0f}",      style={"padding":"5px 12px","fontSize":"12px","fontWeight":"700","color":AMBER}),
+        html.Td(f"${cb_base['running_balance'].sum():,.0f}",    style={"padding":"5px 12px","fontSize":"12px","fontWeight":"700","color":GREEN}),
+    ], style={"borderTop":f"2px solid {GREY}"}))
 
+    tbl_card = html.Div([
+        html.Div("How sensitive are we to late payments?",
+                 style={"fontSize":"13px","fontWeight":"700","color":NAVY,"marginBottom":"12px"}),
+        html.Div(html.Table(tbl_rows_data, style={"width":"100%","borderCollapse":"collapse"}),
+                 style={"overflowX":"auto"}),
+    ], style={"background":CARD,"borderRadius":"10px","padding":"20px 24px",
+              "boxShadow":"0 1px 3px rgba(0,0,0,0.07)","border":f"1px solid {GREY}","flex":"1"})
 
-# ── PAGE 6 — STRATEGIC MODEL ──────────────────────────────────────────────────
-
-def page_strategic_model():
-    df_fc  = query("SELECT forecast_month, revenue_forecast FROM intel.revenue_forecast_12m ORDER BY forecast_month")
-    df_gl  = query("""SELECT g.period_start, g.credit_amount, g.debit_amount, c.category
-        FROM erp.gl_ledger g JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month,-28,GETDATE())""")
-    df_cov = query("SELECT dscr_proxy FROM intel.covenant_tracker WHERE scenario='base' ORDER BY period DESC")
-    df_cb  = query("SELECT running_balance FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num DESC")
-
-    if df_gl.empty:
-        return html.Div("No data", style={"color": SLATE, "padding": "40px"})
-
-    df_gl["month"] = pd.to_datetime(df_gl["period_start"]).dt.to_period("M").astype(str)
-    rev_mo   = df_gl[df_gl["category"]=="Revenue"].groupby("month")["credit_amount"].sum()
-    opex_mo  = df_gl[df_gl["category"].isin(["OpEx","COGS"])].groupby("month")["debit_amount"].sum()
-    idx      = rev_mo.index.union(opex_mo.index)
-    rev_mo   = rev_mo.reindex(idx, fill_value=0)
-    opex_mo  = opex_mo.reindex(idx, fill_value=0)
-
-    # YoY growth
-    months = sorted(idx.tolist())
-    yoy_rev, yoy_opex, yoy_months = [], [], []
-    for i, m in enumerate(months):
-        if i >= 12:
-            prev = months[i-12]
-            if rev_mo[prev] != 0:
-                yoy_rev.append((rev_mo[m]-rev_mo[prev])/rev_mo[prev])
-                yoy_opex.append((opex_mo[m]-opex_mo[prev])/opex_mo[prev])
-                yoy_months.append(m)
-
-    rev_monthly_sum = rev_mo.sum()
-    dscr_latest = df_cov["dscr_proxy"].iloc[0] if not df_cov.empty else 0
-    gm_pct = (rev_mo - opex_mo).sum() / rev_mo.sum() * 100 if rev_mo.sum() else 0
-    wk13 = df_cb["running_balance"].iloc[0] if not df_cb.empty else 0
-
-    # ── Forecast line
-    fc_fig = go.Figure()
-    if not df_fc.empty:
-        df_fc["forecast_month"] = pd.to_datetime(df_fc["forecast_month"]).astype(str)
-        fc_fig.add_trace(go.Scatter(
-            x=df_fc["forecast_month"], y=df_fc["revenue_forecast"]/1e6,
-            fill="tozeroy", line=dict(color=BLUE, width=2.5),
-            fillcolor="rgba(37,99,235,0.12)", name="P50",
-        ))
-    apply_layout(fc_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="forecast_month", yaxis_tickprefix="$", yaxis_ticksuffix="M")
-
-    # ── Historical revenue area
-    hist_fig = go.Figure(go.Scatter(
-        x=idx, y=rev_mo.values/1e6,
-        fill="tozeroy", line=dict(color=BLUE, width=2),
-        fillcolor="rgba(37,99,235,0.15)", name="Revenue Monthly",
+    # Vendor payables bar
+    ap_vendor = ap.groupby("vendor_id")["amount"].sum().sort_values(ascending=False).head(25)
+    fig_ap = go.Figure(go.Bar(
+        x=ap_vendor.index, y=ap_vendor.values/1e6,
+        marker_color=LBLUE,
     ))
-    apply_layout(hist_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="Month", yaxis_tickprefix="$", yaxis_ticksuffix="M")
-
-    # ── YoY grouped bar
-    yoy_fig = go.Figure()
-    if yoy_months:
-        yoy_fig.add_trace(go.Bar(x=yoy_months, y=yoy_rev, name="Revenue YoY%",
-                                 marker_color=LBLUE, opacity=0.8))
-        yoy_fig.add_trace(go.Bar(x=yoy_months, y=yoy_opex, name="Opex YoY%",
-                                 marker_color=BLUE2, opacity=0.8))
-    yoy_fig.add_hline(y=0, line_color=RED, line_width=1)
-    apply_layout(yoy_fig, barmode="group", margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="Month", yaxis_ticksuffix="%")
-
-    gm_color = GREEN if gm_pct > 30 else AMBER
-    return html.Div([
-        page_header(6, "Strategic Model", "Is the business structurally healthy for the next 12 months?"),
-        kpi_row([
-            kpi(f"${rev_monthly_sum/1e6:.2f}M", "Revenue (Total)"),
-            kpi(f"{dscr_latest:.0f}", "DSCR Current", GREEN if dscr_latest > 0 else RED),
-            kpi(f"{gm_pct:.1f}%", "Gross Margin %", gm_color),
-            kpi(f"${wk13/1e6:.1f}M", "Week 13 Cash Balance", GREEN if wk13 > 0 else RED),
-        ]),
-        charts_row([
-            chart_box("Where is our revenue heading in the next 12 months?", fc_fig, half=True),
-            chart_box("Is the business structurally healthy?", hist_fig, half=True),
-        ]),
-        chart_box("Is revenue growing faster than costs?", yoy_fig),
-    ])
-
-
-# ── PAGE 7 — MACRO ENVIRONMENT ────────────────────────────────────────────────
-
-def page_macro():
-    df = query("SELECT obs_date, metric_key, value FROM macro.economic_indicators ORDER BY obs_date")
-
-    if df.empty:
-        return html.Div("No macro data", style={"color": SLATE, "padding": "40px"})
-
-    df["obs_date"] = pd.to_datetime(df["obs_date"])
-
-    def latest_val(key):
-        r = df[df["metric_key"]==key].sort_values("obs_date")
-        return r["value"].iloc[-1] if not r.empty else None
-
-    boc  = latest_val("BOC_POLICY_RATE")
-    unemp= latest_val("UNEMPLOYMENT_RATE")
-    usdcad=latest_val("USD_CAD")
-
-    # Yield spread (10Y - 2Y) — approximate with available metrics
-    y10 = df[df["metric_key"].str.contains("10Y|GOC_10Y", na=False, case=False)].sort_values("obs_date")
-    y2  = df[df["metric_key"].str.contains("2Y|GOC_2Y",  na=False, case=False)].sort_values("obs_date")
-    if not y10.empty and not y2.empty:
-        merged_y = y10[["obs_date","value"]].merge(y2[["obs_date","value"]], on="obs_date", suffixes=("_10","_2"))
-        merged_y["spread"] = merged_y["value_10"] - merged_y["value_2"]
-        spread_latest = merged_y["spread"].iloc[-1] if len(merged_y) > 0 else None
-    else:
-        merged_y = pd.DataFrame()
-        spread_latest = None
-
-    # ── BoC rate line
-    boc_df = df[df["metric_key"]=="BOC_POLICY_RATE"]
-    boc_fig = go.Figure(go.Scatter(
-        x=boc_df["obs_date"], y=boc_df["value"],
-        line=dict(color=BLUE, width=2.5), name="BoC Policy Rate",
-    ))
-    apply_layout(boc_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="obs_date", yaxis_title="BoC Policy Rate")
-
-    # ── Yield spread
-    spread_fig = go.Figure()
-    if not merged_y.empty:
-        spread_fig.add_trace(go.Scatter(
-            x=merged_y["obs_date"], y=merged_y["spread"],
-            line=dict(color=LBLUE, width=2), name="Yield Spread",
-            fill="tozeroy", fillcolor="rgba(147,197,253,0.1)",
-        ))
-        spread_fig.add_hline(y=0, line_dash="dash", line_color=RED, line_width=1)
-    apply_layout(spread_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="obs_date", yaxis_title="Yield Spread")
-
-    # ── IPPI vs MFG new orders
-    ippi_df = df[df["metric_key"]=="STATCAN_IPPI"]
-    mfg_df  = df[df["metric_key"]=="STATCAN_MFG_NEW_ORDERS"]
-    cost_fig = go.Figure()
-    if not ippi_df.empty:
-        cost_fig.add_trace(go.Scatter(x=ippi_df["obs_date"], y=ippi_df["value"],
-                                      name="STATCAN_IPPI", line=dict(color=LBLUE, width=2),
-                                      fill="tozeroy", fillcolor="rgba(147,197,253,0.1)"))
-    if not mfg_df.empty:
-        cost_fig.add_trace(go.Scatter(x=mfg_df["obs_date"], y=mfg_df["value"],
-                                      name="STATCAN_MFG_NEW_ORDERS", line=dict(color=BLUE2, width=2),
-                                      fill="tozeroy", fillcolor="rgba(30,58,138,0.15)"))
-    apply_layout(cost_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="obs_date", yaxis_title="Sum of value")
+    fig_ap.update_layout(**base_layout())
+    fig_ap.update_layout(showlegend=False, yaxis_tickprefix="$", yaxis_ticksuffix="M",
+                          xaxis_title="vendor_id")
 
     return html.Div([
-        page_header(7, "Macro Environment", "What is the external environment doing to us?"),
-        kpi_row([
-            kpi(f"{boc:.2f}" if boc else "—", "BoC Policy Rate"),
-            kpi(f"{spread_latest:.2f}" if spread_latest else "—", "Yield Spread", RED if spread_latest and spread_latest < 0 else GREEN),
-            kpi(f"{unemp:.2f}" if unemp else "—", "Unemployment Rate", AMBER),
-            kpi(f"{usdcad:.2f}" if usdcad else "—", "USD CAD"),
-        ]),
-        charts_row([
-            chart_box("Where is the BoC rate heading?", boc_fig, half=True),
-            chart_box("Is the yield curve inverted?", spread_fig, half=True),
-        ]),
-        chart_box("Are input costs outpacing new orders?", cost_fig),
+        page_header(5, "13-Week Cash Forecast", SUBTITLES["cfo5"]),
+        page_body(
+            kpi_row(
+                kpi_card("Week 13 Cash Balance", f"${week13_bal/1e6:.1f}M",   GREEN),
+                kpi_card("Weekly Burn Rate",     f"${weekly_burn/1e3:.1f}K",  AMBER),
+                kpi_card("Cash Runway Weeks",    f"{cash_runway}",            GREEN),
+                kpi_card("AR Outstanding",       f"${ar_out/1e6:.2f}M",       BLUE),
+            ),
+            chart_card("When does our cash balance hit the danger zone?", fig_triple, height=320),
+            chart_row(
+                tbl_card,
+                html.Div(chart_card("Where are near-term payables concentrated?", fig_ap), style={"flex":"1"}),
+            ),
+        ),
     ])
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CFO 6 — STRATEGIC MODEL
+# ═══════════════════════════════════════════════════════════════════════════════
+def build_cfo6():
+    gl6 = gl.copy()
+    gl6["period_start"] = pd.to_datetime(gl6["period_start"])
+    rev_m  = gl6[gl6.category=="Revenue"].groupby("period_start")["credit_amount"].sum().sort_index()
+    cogs_m = gl6[gl6.category=="COGS"].groupby("period_start")["debit_amount"].sum().sort_index()
+    opex_m = gl6[gl6.category=="OpEx"].groupby("period_start")["debit_amount"].sum().sort_index()
 
-# ── PAGE 8 — SECTOR ROTATION ──────────────────────────────────────────────────
+    rev_total  = rev_m.sum()
+    gross_m    = ((rev_m - cogs_m) / rev_m * 100).mean()
+    week13_bal = cb[cb.scenario=="base"]["running_balance"].max()
+    base_cov   = cov[cov.scenario=="base"]
+    dscr_curr  = base_cov["dscr_proxy"].iloc[-1]
 
-def page_sector_rotation():
-    df = query("SELECT obs_date, ticker, description, close_price FROM macro.sector_rotation ORDER BY obs_date")
-    df_macro = query("SELECT metric_key, value FROM macro.economic_indicators ORDER BY obs_date DESC")
-
-    if df.empty:
-        return html.Div("No sector data", style={"color": SLATE, "padding": "40px"})
-
-    df["obs_date"] = pd.to_datetime(df["obs_date"])
-
-    # Cyclical/Defensive ratio
-    cyclical_tickers = ["XFN","XIT","XEG"]
-    defensive_tickers= ["XST","XUT","XRE"]
-    latest_date = df["obs_date"].max()
-    latest = df[df["obs_date"]==latest_date]
-    cyc_price = latest[latest["ticker"].isin(cyclical_tickers)]["close_price"].mean()
-    def_price = latest[latest["ticker"].isin(defensive_tickers)]["close_price"].mean()
-    ratio = cyc_price / def_price if def_price else 1
-    risk_stance = "Risk-On" if ratio > 1 else "Risk-Off"
-
-    def get_macro(key):
-        r = df_macro[df_macro["metric_key"]==key]
-        return r["value"].iloc[0] if not r.empty else None
-    boc = get_macro("BOC_POLICY_RATE")
-
-    spread_df = df_macro[df_macro["metric_key"].str.contains("SPREAD|10Y|2Y", na=False, case=False)]
-    spread = None  # simplified
-
-    # ── Cyclical ratio over time
-    cyc_hist = df[df["ticker"].isin(cyclical_tickers)].groupby("obs_date")["close_price"].mean()
-    def_hist  = df[df["ticker"].isin(defensive_tickers)].groupby("obs_date")["close_price"].mean()
-    ratio_hist= (cyc_hist / def_hist.replace(0,1)).reset_index()
-    ratio_hist.columns = ["obs_date","ratio"]
-
-    ratio_fig = go.Figure(go.Scatter(
-        x=ratio_hist["obs_date"], y=ratio_hist["ratio"],
-        line=dict(color=BLUE, width=2), name="Cyclical Ratio",
+    # 12m forecast line
+    fig_fcast = go.Figure(go.Scatter(
+        x=fcast["forecast_month"], y=fcast["revenue_forecast"]/1e6,
+        fill="tozeropy", fillcolor="rgba(68,114,196,0.15)",
+        line=dict(color=LBLUE, width=2), mode="lines+markers", marker=dict(size=5),
+        name="Revenue Forecast",
     ))
-    ratio_fig.add_hline(y=1.0, line_dash="dash", line_color=RED, line_width=1.5,
-                        annotation_text="Risk-On threshold 1.0",
-                        annotation_font=dict(color=RED, size=10))
-    apply_layout(ratio_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="obs_date", yaxis_title="Cyclical Ratio")
+    fig_fcast.update_layout(**base_layout())
+    fig_fcast.update_layout(showlegend=False, yaxis_tickprefix="$", yaxis_ticksuffix="M",
+                             xaxis_title="forecast_month")
 
-    # ── Capital concentration bar
-    cap_df = df.groupby("description")["close_price"].max().sort_values(ascending=False).reset_index()
-    bar_colors = [BLUE, LBLUE, TEAL, GREEN, AMBER, PURPLE, RED, PINK, BLUE2, SLATE]
-    cap_fig = go.Figure(go.Bar(
-        x=cap_df["description"], y=cap_df["close_price"],
-        marker_color=bar_colors[:len(cap_df)], opacity=0.85,
+    # Historical revenue area
+    fig_hist = go.Figure(go.Scatter(
+        x=rev_m.index, y=rev_m.values/1e6,
+        fill="tozeropy", fillcolor="rgba(30,58,138,0.12)",
+        line=dict(color=NAVY, width=2), mode="lines", name="Revenue",
     ))
-    apply_layout(cap_fig, margin=dict(l=48, r=10, t=10, b=100),
-                 xaxis_title="description", yaxis_title="Max of close_price",
-                 xaxis=dict(tickfont=dict(size=8), gridcolor="rgba(255,255,255,0.05)",
-                            showline=False, zeroline=False))
+    fig_hist.update_layout(**base_layout())
+    fig_hist.update_layout(showlegend=False, yaxis_tickprefix="$", yaxis_ticksuffix="M",
+                            xaxis_title="Month")
 
-    # ── Sector ETF lines (top 5 by description)
-    top_tickers = cap_df.head(5)["description"].tolist()
-    line_colors  = [LBLUE, BLUE2, AMBER, PINK, TEAL]
-    etf_fig = go.Figure()
-    for i, desc in enumerate(top_tickers):
-        d = df[df["description"]==desc]
-        etf_fig.add_trace(go.Scatter(
-            x=d["obs_date"], y=d["close_price"],
-            name=desc, line=dict(color=line_colors[i % len(line_colors)], width=1.5),
-        ))
-    apply_layout(etf_fig, margin=dict(l=48, r=10, t=10, b=48),
-                 xaxis_title="obs_date", yaxis_title="Average of close_price")
+    # YoY grouped bar
+    rev_yoy  = rev_m.pct_change(12).dropna()
+    opex_yoy = opex_m.pct_change(12).dropna()
+    common_idx = rev_yoy.index.intersection(opex_yoy.index)
+    fig_yoy = go.Figure([
+        go.Bar(x=common_idx, y=rev_yoy[common_idx].values * 100,
+               name="Revenue YoY%", marker_color=LBLUE),
+        go.Bar(x=common_idx, y=opex_yoy[common_idx].values * 100,
+               name="Opex YoY%", marker_color="#6B88D4"),
+    ])
+    fig_yoy.add_hline(y=0, line_color=RED, line_width=1)
+    fig_yoy.update_layout(**base_layout())
+    fig_yoy.update_layout(barmode="group", yaxis_ticksuffix="%", xaxis_title="Month")
 
-    ratio_color = GREEN if ratio > 1 else RED
     return html.Div([
-        page_header(8, "Sector Rotation", "What are institutional investors telling us about the economy?"),
-        kpi_row([
-            kpi(f"{ratio:.2f}", "Cyclical Ratio", ratio_color),
-            kpi(risk_stance, "Risk Stance", ratio_color),
-            kpi(f"{boc:.2f}" if boc else "—", "BoC Policy Rate"),
-            kpi("—", "Yield Spread", SLATE),
-        ]),
-        charts_row([
-            chart_box("Are institutional investors Risk-On or Risk-Off?", ratio_fig, half=True),
-            chart_box("Where is capital concentrated today?", cap_fig, half=True),
-        ]),
-        chart_box("Which sectors are institutional investors rotating into?", etf_fig),
+        page_header(6, "Strategic Model", SUBTITLES["cfo6"]),
+        page_body(
+            kpi_row(
+                kpi_card("Revenue (Total)",  f"${rev_total/1e6:.2f}M",  NAVY),
+                kpi_card("DSCR Current",     f"{dscr_curr:.0f}",        RED if dscr_curr<0 else GREEN),
+                kpi_card("Gross Margin %",   f"{gross_m:.1f}%",         AMBER),
+                kpi_card("Week 13 Cash Balance", f"${week13_bal/1e6:.1f}M", GREEN),
+            ),
+            chart_row(
+                html.Div(chart_card("Where is our revenue heading in the next 12 months?", fig_fcast), style={"flex":"1"}),
+                html.Div(chart_card("Is the business structurally healthy?", fig_hist), style={"flex":"1"}),
+            ),
+            chart_card("Is revenue growing faster than costs?", fig_yoy, height=280),
+        ),
     ])
 
-
-# ── PAGES REGISTRY ────────────────────────────────────────────────────────────
-
-PAGES = [
-    {"key": "cfo1", "label": "Financial Velocity",   "fn": page_financial_velocity},
-    {"key": "cfo2", "label": "Working Capital",       "fn": page_working_capital},
-    {"key": "cfo3", "label": "Solvency & Debt",       "fn": page_solvency},
-    {"key": "cfo4", "label": "Unit Economics",        "fn": page_unit_economics},
-    {"key": "cfo5", "label": "13-Week Cash Forecast", "fn": page_cash_forecast},
-    {"key": "cfo6", "label": "Strategic Model",       "fn": page_strategic_model},
-    {"key": "cfo7", "label": "Macro Environment",     "fn": page_macro},
-    {"key": "cfo8", "label": "Sector Rotation",       "fn": page_sector_rotation},
-]
-
-# ── LAYOUT ────────────────────────────────────────────────────────────────────
-
-app = Dash(__name__, suppress_callback_exceptions=True)
-server = app.server
-
-NAV_BTN_BASE = {
-    "display": "block", "width": "100%", "textAlign": "left",
-    "background": "transparent", "border": "none", "cursor": "pointer",
-    "padding": "9px 14px", "borderRadius": "7px", "marginBottom": "2px",
-    "fontSize": "12px", "color": "#475569", "fontWeight": "500",
-    "fontFamily": FONT, "transition": "all 0.15s",
+# ── PAGE DISPATCH ─────────────────────────────────────────────────────────────
+PAGE_BUILDERS = {
+    "cfo1": build_cfo1,
+    "cfo2": build_cfo2,
+    "cfo3": build_cfo3,
+    "cfo4": build_cfo4,
+    "cfo5": build_cfo5,
+    "cfo6": build_cfo6,
 }
 
-app.layout = html.Div([
-    # ── Sidebar
-    html.Div([
-        html.Div([
-            html.Div("CFO", style={"fontSize": "15px", "fontWeight": "800", "color": "#0F172A"}),
-            html.Div("Intelligence App", style={"fontSize": "10px", "color": BLUE,
-                                               "letterSpacing": "0.06em", "textTransform": "uppercase"}),
-        ], style={"marginBottom": "32px", "paddingBottom": "16px",
-                  "borderBottom": "1px solid #E2E8F0"}),
-        html.Div([
-            html.Button(
-                p["label"],
-                id={"type": "nav-btn", "index": p["key"]},
-                n_clicks=0,
-                style=NAV_BTN_BASE,
-            )
-            for p in PAGES
-        ], id="nav-buttons"),
-        html.Div([
-            html.Div("Last refreshed", style={"fontSize":"9px","color":"#94A3B8",
-                "textTransform":"uppercase","letterSpacing":"0.06em","marginBottom":"4px"}),
-            html.Div(datetime.now().strftime("%b %d, %Y %H:%M"),
-                style={"fontSize":"10px","color":"#64748B","fontWeight":"500"}),
-        ], style={"paddingTop":"24px","borderTop":"1px solid #E2E8F0","marginTop":"32px"}),
-    ], style={
-        "width": "185px", "minWidth": "185px",
-        "background": "#FFFFFF",
-        "padding": "24px 12px",
-        "height": "100vh",
-        "overflowY": "auto",
-        "borderRight": "1px solid #E2E8F0",
-        "position": "sticky", "top": 0,
-        "display": "flex", "flexDirection": "column",
-    }),
-
-    # ── Main
-    html.Div([
-        dcc.Store(id="active-page", data="cfo1"),
-        html.Div(id="page-content", style={"padding": "28px 36px 16px"}),
-    ], style={"flex": 1, "overflowY": "auto", "background": "#F1F5F9"}),
-
-], style={"display": "flex", "background": "#F1F5F9", "minHeight": "100vh", "fontFamily": FONT})
-
-
 # ── CALLBACKS ─────────────────────────────────────────────────────────────────
-
 @app.callback(
     Output("active-page", "data"),
-    Input({"type": "nav-btn", "index": ALL}, "n_clicks"),
+    [Input({"type":"nav","index":pid}, "n_clicks") for pid,_ in PAGES],
     prevent_initial_call=True,
 )
-def set_active(n_clicks):
-    triggered = ctx.triggered_id
-    return triggered["index"] if triggered else "cfo1"
+def update_active(*args):
+    from dash import ctx
+    if not ctx.triggered_id:
+        return "cfo1"
+    return ctx.triggered_id["index"]
 
 @app.callback(
-    Output({"type": "nav-btn", "index": ALL}, "style"),
+    Output("sidebar-container", "children"),
     Input("active-page", "data"),
 )
-def highlight_nav(active_page):
-    styles = []
-    for p in PAGES:
-        if p["key"] == active_page:
-            styles.append({**NAV_BTN_BASE,
-                "background": "#EFF6FF",
-                "color": "#1E3A8A",
-                "fontWeight": "700",
-                "borderLeft": "3px solid #1E3A8A",
-                "paddingLeft": "11px",
-            })
-        else:
-            styles.append({**NAV_BTN_BASE,
-                "color": "#475569",
-                "fontWeight": "500",
-            })
-    return styles
-
+def update_sidebar(active):
+    return sidebar(active)
 
 @app.callback(
     Output("page-content", "children"),
     Input("active-page", "data"),
 )
-def render_page(key):
-    for p in PAGES:
-        if p["key"] == key:
-            return p["fn"]()
-    return PAGES[0]["fn"]()
+def render_page(page):
+    builder = PAGE_BUILDERS.get(page, build_cfo1)
+    return builder()
 
-
-
-# Preload all data at startup
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8050))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(debug=True, port=8050)
