@@ -222,11 +222,15 @@ def cfo2():
     # Customer risk scatter — unpaid only, aggregate per customer
     cust_risk = unpaid.groupby("customer_id").agg(
         ar_out=("amount","sum"), avg_dpd=("days_past_due","mean")).reset_index()
+    # Add small jitter to zero-DPD points so they don't stack
+    x_vals = cust_risk["avg_dpd"].values.copy().astype(float)
+    zero_mask = x_vals == 0
+    x_vals[zero_mask] = np.random.uniform(0.3, 1.8, zero_mask.sum())
     fig_scatter = go.Figure(go.Scatter(
-        x=cust_risk["avg_dpd"], y=cust_risk["ar_out"]/1e3,
+        x=x_vals, y=cust_risk["ar_out"]/1e3,
         mode="markers",
         marker=dict(size=cust_risk["ar_out"]/cust_risk["ar_out"].max()*18+6,
-                    color=cust_risk["avg_dpd"],
+                    color=cust_risk["avg_dpd"].values,
                     colorscale=[[0,LBLUE],[0.5,BLUE],[1,NAVY]],
                     showscale=False, opacity=0.78),
         hovertemplate="<b>%{customdata}</b><br>DPD: %{x:.0f}<br>AR: $%{y:.0f}K<extra></extra>",
@@ -399,17 +403,20 @@ def cfo4():
     ])
     fig_fc.update_layout(**bl(yaxis_tickprefix="$", yaxis_ticksuffix="M", xaxis_title="Month"))
 
-    # Margin compression dual-area
-    fig_mg = go.Figure([
-        go.Scatter(x=gross_m_pct.index, y=gross_m_pct.values,
+    # Margin compression — dual axis so both lines are readable
+    fig_mg = make_subplots(specs=[[{"secondary_y":True}]])
+    fig_mg.add_trace(go.Scatter(x=gross_m_pct.index, y=gross_m_pct.values,
                    fill="tozeroy", fillcolor="rgba(30,58,138,0.10)",
                    line=dict(color=NAVY, width=2.5), name="Gross Margin %", mode="lines"),
-        go.Scatter(x=ebitda_m_pct.index, y=ebitda_m_pct.values,
-                   fill="tozeroy", fillcolor="rgba(68,114,196,0.12)",
-                   line=dict(color=LBLUE, width=2), name="EBITDA Margin %", mode="lines"),
-    ])
-    fig_mg.add_hline(y=0, line_color=RED, line_width=1.2)
-    fig_mg.update_layout(**bl(yaxis_ticksuffix="%", xaxis_title="Month"))
+                   secondary_y=False)
+    fig_mg.add_trace(go.Scatter(x=ebitda_m_pct.index, y=ebitda_m_pct.values,
+                   fill="tozeroy", fillcolor="rgba(68,114,196,0.15)",
+                   line=dict(color=BLUE, width=2), name="EBITDA Margin %", mode="lines"),
+                   secondary_y=True)
+    fig_mg.add_hline(y=0, line_color=RED, line_width=1.2, secondary_y=True)
+    fig_mg.update_layout(**bl(xaxis_title="Month"))
+    fig_mg.update_yaxes(ticksuffix="%", title_text="Gross Margin %", gridcolor=GRID, secondary_y=False)
+    fig_mg.update_yaxes(ticksuffix="%", title_text="EBITDA Margin %", showgrid=False, secondary_y=True)
 
     return html.Div([
         header(4,"Unit Economics",SUBTITLES["cfo4"]),
@@ -444,8 +451,10 @@ def cfo5():
                                  name="Running Balance", line=dict(color=AMBER,width=2.5),
                                  mode="lines+markers", marker=dict(size=5,color=AMBER)), secondary_y=True)
     fig_tri.update_layout(**bl(legend=dict(orientation="h",y=1.06), xaxis=dict(tickangle=-30,showgrid=False)))
-    fig_tri.update_yaxes(tickprefix="$",ticksuffix="M",gridcolor=GRID,secondary_y=False)
-    fig_tri.update_yaxes(tickprefix="$",ticksuffix="M",showgrid=False,secondary_y=True)
+    fig_tri.update_yaxes(tickprefix="$",ticksuffix="M",gridcolor=GRID,secondary_y=False,
+                         rangemode="tozero")
+    fig_tri.update_yaxes(tickprefix="$",ticksuffix="M",showgrid=False,secondary_y=True,
+                         rangemode="tozero")
 
     # Weekly table
     th_style = {"padding":"6px 10px","fontSize":"10px","color":SLATE,"fontWeight":"700",
