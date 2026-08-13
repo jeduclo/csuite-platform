@@ -14,10 +14,23 @@ import sqlalchemy
 
 # ── DB ────────────────────────────────────────────────────────────────────────
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+_raw_url = os.environ.get("DATABASE_URL", "")
+import re as _re
+_m = _re.match(r"mssql\+pyodbc://([^:]+):([^@]+)@([^/]+)/([^?]+)", _raw_url)
+if _m:
+    _user, _pwd, _host, _db = _m.groups()
+    from urllib.parse import unquote as _unquote
+    _pwd = _unquote(_pwd)
+    DATABASE_URL = f"mssql+pymssql://{_user}:{_pwd}@{_host}/{_db}"
+else:
+    DATABASE_URL = _raw_url
 
+_engine = None
 def get_engine():
-    return sqlalchemy.create_engine(DATABASE_URL, connect_args={"timeout": 15})
+    global _engine
+    if _engine is None:
+        _engine = sqlalchemy.create_engine(DATABASE_URL, connect_args={"timeout": 15})
+    return _engine
 
 def query(sql: str) -> pd.DataFrame:
     try:
