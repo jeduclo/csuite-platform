@@ -18,6 +18,34 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 # In-memory cache — generated once per page per session, never regenerated
 _brief_cache = {}
 
+# Data cache — loaded once at startup
+_data_cache = {}
+
+def get_cached(key, sql):
+    if key not in _data_cache:
+        _data_cache[key] = query(sql)
+    return _data_cache[key].copy()
+
+def preload_data():
+    """Load all DB data once at startup."""
+    print("Preloading data cache...")
+    get_cached("gl", """
+        SELECT g.period_start, g.credit_amount, g.debit_amount, c.category, c.account_name
+        FROM erp.gl_ledger g
+        JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
+        WHERE g.period_start >= DATEADD(month, -28, GETDATE())
+    """)
+    get_cached("ar", "SELECT invoice_date, due_date, amount, paid, days_past_due, customer_id FROM erp.ar_invoices")
+    get_cached("ap", "SELECT invoice_date, amount, paid, vendor_id FROM erp.ap_invoices")
+    get_cached("cash_burn", "SELECT week_num, week_label, avg_cash_collected, avg_cash_burn, running_balance, scenario FROM intel.cash_burn_weekly ORDER BY week_num")
+    get_cached("covenant", "SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario FROM intel.covenant_tracker ORDER BY period")
+    get_cached("forecast", "SELECT forecast_month, revenue_forecast, lower_bound, upper_bound FROM intel.revenue_forecast_12m ORDER BY forecast_month")
+    get_cached("macro", "SELECT obs_date, metric_key, value FROM macro.economic_indicators ORDER BY obs_date")
+    get_cached("sector", "SELECT obs_date, ticker, description, close_price FROM macro.sector_rotation ORDER BY obs_date")
+    get_cached("customers", "SELECT customer_id, customer_name FROM dim.customers")
+    get_cached("budget", "SELECT SUM(budget_amount) as total FROM erp.budget")
+    print("Data cache loaded.")
+
 def gemini_summary(page_title, kpis: dict, question: str) -> str:
     if page_title in _brief_cache:
         return _brief_cache[page_title]
@@ -242,13 +270,7 @@ def ai_panel(summary_text: str, loading: bool = False):
 # ── PAGE 1 — FINANCIAL VELOCITY ───────────────────────────────────────────────
 
 def page_financial_velocity():
-    df = query("""
-        SELECT g.period_start, g.credit_amount, g.debit_amount, c.category, c.account_name
-        FROM erp.gl_ledger g
-        JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month, -28, GETDATE())
-    """)
-
+    df = get_cached("gl", "")
     if df.empty:
         return html.Div("No GL data available", style={"color": SLATE, "padding": "40px"})
 
@@ -265,7 +287,7 @@ def page_financial_velocity():
     ebitda_pct = ebitda / rev_total * 100 if rev_total else 0
 
     # AR collection rate
-    df_ar = query("SELECT paid, amount FROM erp.ar_invoices")
+    df_ar = get_cached("ar", "")
     if not df_ar.empty:
         collected = df_ar[df_ar["paid"]==True]["amount"].sum()
         total_ar  = df_ar["amount"].sum()
@@ -344,13 +366,10 @@ def page_financial_velocity():
 # ── PAGE 2 — WORKING CAPITAL ──────────────────────────────────────────────────
 
 def page_working_capital():
-    df_ar = query("""
-        SELECT a.invoice_date, a.due_date, a.amount, a.paid, a.days_past_due,
-               c.customer_name
-        FROM erp.ar_invoices a
-        LEFT JOIN dim.customers c ON a.customer_id = c.customer_id
-    """)
-    df_ap = query("SELECT invoice_date, amount, paid FROM erp.ap_invoices")
+    df_ar = get_cached("ar", "").merge(
+        get_cached("customers", "")[["customer_id","customer_name"]],
+        on="customer_id", how="left")
+    df_ap = get_cached("ap", "")
 
     if df_ar.empty:
         return html.Div("No AR data", style={"color": SLATE, "padding": "40px"})
@@ -442,15 +461,9 @@ def page_working_capital():
 # ── PAGE 3 — SOLVENCY & DEBT ──────────────────────────────────────────────────
 
 def page_solvency():
-    df_cov = query("""
-        SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario
-        FROM intel.covenant_tracker ORDER BY period
-    """)
-    df_cb = query("""
-        SELECT week_num, week_label, avg_cash_collected, avg_cash_burn
-        FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num
-    """)
-    df_ar = query("SELECT amount FROM erp.ar_invoices WHERE paid=0")
+    df_cov = get_cached("covenant", "")
+    df_cb = get_cached("cash_burn", "").query("scenario == 'base'")[["week_num","week_label","avg_cash_collected","avg_cash_burn"]]
+    df_ar = get_cached("ar", "").query("paid == False")[["amount"]]
 
     ar_out = df_ar["amount"].sum() if not df_ar.empty else 0
 
@@ -537,14 +550,9 @@ def page_solvency():
 # ── PAGE 4 — UNIT ECONOMICS ───────────────────────────────────────────────────
 
 def page_unit_economics():
-    df = query("""
-        SELECT g.period_start, g.credit_amount, g.debit_amount, c.category
-        FROM erp.gl_ledger g
-        JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month,-28,GETDATE())
-    """)
-    df_fc = query("SELECT forecast_month, revenue_forecast, lower_bound, upper_bound FROM intel.revenue_forecast_12m ORDER BY forecast_month")
-    df_bud = query("SELECT SUM(budget_amount) as total FROM erp.budget")
+    df = get_cached("gl", "")
+    df_fc = get_cached("forecast", "")
+    df_bud = get_cached("budget", "")
 
     if df.empty:
         return html.Div("No GL data", style={"color": SLATE, "padding": "40px"})
@@ -638,8 +646,8 @@ def page_cash_forecast():
     base    = df[df["scenario"]=="base"].copy()
     wk13    = base["running_balance"].iloc[-1] if not base.empty else 0
     burn    = base["avg_cash_burn"].mean() if not base.empty else 0
-    ar_out  = query("SELECT SUM(amount) as t FROM erp.ar_invoices WHERE paid=0")
-    ar_val  = ar_out["t"].iloc[0] if not ar_out.empty else 0
+    ar_out_df = get_cached("ar","").query("paid==False")
+    ar_val  = ar_out_df["amount"].sum()
     runway  = ar_val / burn if burn > 0 else 0
 
     # ── Triple line: collected / burn / balance
@@ -719,14 +727,10 @@ def page_cash_forecast():
 # ── PAGE 6 — STRATEGIC MODEL ──────────────────────────────────────────────────
 
 def page_strategic_model():
-    df_fc  = query("SELECT forecast_month, revenue_forecast FROM intel.revenue_forecast_12m ORDER BY forecast_month")
-    df_gl  = query("""
-        SELECT g.period_start, g.credit_amount, g.debit_amount, c.category
-        FROM erp.gl_ledger g JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month,-28,GETDATE())
-    """)
-    df_cov = query("SELECT dscr_proxy FROM intel.covenant_tracker WHERE scenario='base' ORDER BY period DESC")
-    df_cb  = query("SELECT running_balance FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num DESC")
+    df_fc  = get_cached("forecast", "")
+    df_gl  = get_cached("gl", "")
+    df_cov = get_cached("covenant", "").query("scenario=='base'").sort_values("period", ascending=False)
+    df_cb  = get_cached("cash_burn", "").query("scenario=='base'").sort_values("week_num", ascending=False)
 
     if df_gl.empty:
         return html.Div("No data", style={"color": SLATE, "padding": "40px"})
@@ -807,7 +811,7 @@ def page_strategic_model():
 # ── PAGE 7 — MACRO ENVIRONMENT ────────────────────────────────────────────────
 
 def page_macro():
-    df = query("SELECT obs_date, metric_key, value FROM macro.economic_indicators ORDER BY obs_date")
+    df = get_cached("macro", "")
 
     if df.empty:
         return html.Div("No macro data", style={"color": SLATE, "padding": "40px"})
@@ -888,8 +892,8 @@ def page_macro():
 # ── PAGE 8 — SECTOR ROTATION ──────────────────────────────────────────────────
 
 def page_sector_rotation():
-    df = query("SELECT obs_date, ticker, description, close_price FROM macro.sector_rotation ORDER BY obs_date")
-    df_macro = query("SELECT metric_key, value FROM macro.economic_indicators ORDER BY obs_date DESC")
+    df = get_cached("sector", "")
+    df_macro = get_cached("macro", "").sort_values("obs_date", ascending=False)
 
     if df.empty:
         return html.Div("No sector data", style={"color": SLATE, "padding": "40px"})
@@ -1189,6 +1193,9 @@ def update_ai_brief(n, page_key):
     text = gemini_summary(title, kpis, question)
     return ai_panel(text)
 
+
+# Preload all data at startup
+preload_data()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8050))
