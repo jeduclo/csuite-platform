@@ -47,7 +47,11 @@ Start with the most important signal. Use plain language a CFO can act on."""
 
 # ── DB ────────────────────────────────────────────────────────────────────────
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+_raw_url = os.environ.get("DATABASE_URL", "")
+# Convert pyodbc URL to pymssql for Render compatibility
+DATABASE_URL = _raw_url.replace(
+    "mssql+pyodbc://", "mssql+pymssql://"
+).split("?")[0] if _raw_url else ""
 
 def get_engine():
     return sqlalchemy.create_engine(DATABASE_URL, connect_args={"timeout": 15})
