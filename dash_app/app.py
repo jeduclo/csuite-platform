@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from dash import Dash, dcc, html, Input, Output, ctx
+from dash import Dash, dcc, html, Input, Output, State, ctx
 
 # ── DATA ──────────────────────────────────────────────────────────────────────
 DATA = os.path.join(os.path.dirname(__file__), "data")
@@ -139,7 +139,6 @@ def body(*rows_):
 
 app.layout = html.Div([
     dcc.Location(id="url", refresh=False),
-    dcc.Store(id="active-page", data="cfo1"),
     html.Div([
         html.Div(id="sidebar-container"),
         html.Div(id="page-content", style={"flex":"1","overflowY":"auto","background":BG}),
@@ -535,17 +534,32 @@ def cfo6():
 # ── DISPATCH ──────────────────────────────────────────────────────────────────
 BUILDERS = {"cfo1":cfo1,"cfo2":cfo2,"cfo3":cfo3,"cfo4":cfo4,"cfo5":cfo5,"cfo6":cfo6}
 
-@app.callback(Output("active-page","data"),
+def page_from_pathname(pathname):
+    """Map URL pathname to page id."""
+    if not pathname or pathname == "/":
+        return "cfo1"
+    # e.g. /cfo2 -> cfo2
+    slug = pathname.strip("/")
+    return slug if slug in BUILDERS else "cfo1"
+
+# Nav clicks → update URL
+@app.callback(Output("url","pathname"),
               [Input({"type":"nav","index":pid},"n_clicks") for pid,_ in PAGES],
               prevent_initial_call=True)
-def set_page(*_):
-    return ctx.triggered_id["index"] if ctx.triggered_id else "cfo1"
+def navigate(*_):
+    if ctx.triggered_id and isinstance(ctx.triggered_id, dict):
+        return "/" + ctx.triggered_id["index"]
+    return "/cfo1"
 
-@app.callback(Output("sidebar-container","children"), Input("active-page","data"))
-def render_sidebar(active): return sidebar(active)
-
-@app.callback(Output("page-content","children"), Input("active-page","data"))
-def render_page(page): return BUILDERS.get(page, cfo1)()
+# URL → sidebar + page content (single callback, no store needed)
+@app.callback(
+    Output("sidebar-container","children"),
+    Output("page-content","children"),
+    Input("url","pathname"),
+)
+def render_all(pathname):
+    page = page_from_pathname(pathname)
+    return sidebar(page), BUILDERS[page]()
 
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
