@@ -8,10 +8,10 @@ export default function CFOPage() {
       src={DASH_URL}
       style={{
         position: "fixed",
-        top: 0,
+        top: "53px",
         left: 0,
         width: "100vw",
-        height: "100vh",
+        height: "calc(100vh - 53px)",
         border: "none",
         display: "block",
       }}
