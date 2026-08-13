@@ -237,6 +237,7 @@ def cfo2():
     fig_scatter.update_layout(**bl(showlegend=False,
                                    xaxis_title="Days Past Due",
                                    yaxis_title="AR Outstanding ($K)"))
+    fig_scatter.update_xaxes(range=[0, max(cust_risk["avg_dpd"].max()*1.1, 35)])
 
     # AR aging — unpaid invoices only, bucketed by days_past_due
     def bucket(dpd):
@@ -281,7 +282,7 @@ def cfo2():
             row(kpi("AR Outstanding", f"${ar_out/1e3:.0f}K", NAVY),
                 kpi("Weighted DSO",   f"{dso:.1f} days",     AMBER if dso>20 else GREEN),
                 kpi("Collection Rate",f"{coll_rate:.1f}%",   GREEN),
-                kpi("Cash Runway",    f"{cash_runway} wks",  GREEN)),
+                kpi("Cash Runway (Gross)",f"{cash_runway} wks", GREEN if cash_runway>8 else AMBER)),
             row(col(card("Which customers carry the most overdue risk?", fig_scatter)),
                 col(card("Where is AR risk concentrated?", fig_aging))),
             card("Are we collecting faster or slower over time?", fig_dso, height=270),
