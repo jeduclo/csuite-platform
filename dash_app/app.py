@@ -259,7 +259,7 @@ def cfo2():
     dso_m = ar3[~ar3.paid].groupby("month")["days_past_due"].mean().sort_index()
     fig_dso = go.Figure(go.Scatter(
         x=dso_m.index, y=dso_m.values,
-        fill="tozeropy", fillcolor="rgba(68,114,196,0.12)",
+        fill="tozeroy", fillcolor="rgba(68,114,196,0.12)",
         line=dict(color=NAVY, width=2.5), mode="lines+markers", marker=dict(size=5,color=NAVY),
         name="DSO",
     ))
@@ -384,7 +384,7 @@ def cfo4():
                    fill="tonexty", fillcolor="rgba(68,114,196,0.12)",
                    line=dict(color="rgba(68,114,196,0)"), name="P10-P90 Band"),
         go.Scatter(x=fcast["forecast_month"], y=fcast["revenue_forecast"]/1e6,
-                   fill="tozeropy", fillcolor="rgba(30,58,138,0.08)",
+                   fill="tozeroy", fillcolor="rgba(30,58,138,0.08)",
                    line=dict(color=NAVY, width=2.5), mode="lines+markers",
                    marker=dict(size=5, color=NAVY), name="P50 Forecast"),
     ])
@@ -393,10 +393,10 @@ def cfo4():
     # Margin compression dual-area
     fig_mg = go.Figure([
         go.Scatter(x=gross_m_pct.index, y=gross_m_pct.values,
-                   fill="tozeropy", fillcolor="rgba(30,58,138,0.10)",
+                   fill="tozeroy", fillcolor="rgba(30,58,138,0.10)",
                    line=dict(color=NAVY, width=2.5), name="Gross Margin %", mode="lines"),
         go.Scatter(x=ebitda_m_pct.index, y=ebitda_m_pct.values,
-                   fill="tozeropy", fillcolor="rgba(68,114,196,0.12)",
+                   fill="tozeroy", fillcolor="rgba(68,114,196,0.12)",
                    line=dict(color=LBLUE, width=2), name="EBITDA Margin %", mode="lines"),
     ])
     fig_mg.add_hline(y=0, line_color=RED, line_width=1.2)
@@ -493,7 +493,7 @@ def cfo6():
     # 12m forecast
     fig_fc = go.Figure(go.Scatter(
         x=fcast["forecast_month"], y=fcast["revenue_forecast"]/1e6,
-        fill="tozeropy", fillcolor="rgba(30,58,138,0.10)",
+        fill="tozeroy", fillcolor="rgba(30,58,138,0.10)",
         line=dict(color=NAVY,width=2.5), mode="lines+markers",
         marker=dict(size=5,color=NAVY), name="Revenue Forecast",
     ))
@@ -502,7 +502,7 @@ def cfo6():
     # Historical revenue area
     fig_hist = go.Figure(go.Scatter(
         x=rev_m.index, y=rev_m.values/1e6,
-        fill="tozeropy", fillcolor="rgba(68,114,196,0.12)",
+        fill="tozeroy", fillcolor="rgba(68,114,196,0.12)",
         line=dict(color=LBLUE,width=2.5), mode="lines", name="Revenue",
     ))
     fig_hist.update_layout(**bl(showlegend=False, yaxis_tickprefix="$", yaxis_ticksuffix="M", xaxis_title="Month"))
