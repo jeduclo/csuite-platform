@@ -129,7 +129,7 @@ def header(num, title, sub):
     return html.Div([
         html.Div(f"CFO {num}", style={"fontSize":"10px","color":BLUE,"fontWeight":"700","letterSpacing":"0.1em","marginBottom":"3px"}),
         html.Div([
-            html.Span(title, style={"fontSize":"20px","fontWeight":"800","color":DARK}),
+            html.Span(title, style={"fontSize":"22px","fontWeight":"800","color":DARK}),
             html.Span(sub, style={"fontSize":"13px","color":SLATE,"fontStyle":"italic","marginLeft":"auto","fontWeight":"500"}),
         ], style={"display":"flex","alignItems":"baseline","gap":"12px","justifyContent":"space-between"}),
     ], style={"padding":"20px 28px 14px","borderBottom":f"1px solid {GREY}","background":CARD})
@@ -451,8 +451,9 @@ def cfo5():
                                  name="Running Balance", line=dict(color=AMBER,width=2.5),
                                  mode="lines+markers", marker=dict(size=5,color=AMBER)), secondary_y=True)
     fig_tri.update_layout(**bl(legend=dict(orientation="h",y=1.06), xaxis=dict(tickangle=-30,showgrid=False)))
-    fig_tri.update_yaxes(tickprefix="$",ticksuffix="M",gridcolor=GRID,secondary_y=False,
-                         rangemode="tozero")
+    # Left axis: weekly flows — use natural range so spread is visible
+    fig_tri.update_yaxes(tickprefix="$",ticksuffix="M",gridcolor=GRID,secondary_y=False)
+    # Right axis: running balance — start from 0 to show trajectory clearly
     fig_tri.update_yaxes(tickprefix="$",ticksuffix="M",showgrid=False,secondary_y=True,
                          rangemode="tozero")
 
