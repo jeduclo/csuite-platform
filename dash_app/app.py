@@ -130,7 +130,7 @@ def header(num, title, sub):
         html.Div(f"CFO {num}", style={"fontSize":"10px","color":BLUE,"fontWeight":"700","letterSpacing":"0.1em","marginBottom":"3px"}),
         html.Div([
             html.Span(title, style={"fontSize":"20px","fontWeight":"800","color":DARK}),
-            html.Span(sub, style={"fontSize":"11px","color":SLATE,"fontStyle":"italic","marginLeft":"auto"}),
+            html.Span(sub, style={"fontSize":"13px","color":SLATE,"fontStyle":"italic","marginLeft":"auto","fontWeight":"500"}),
         ], style={"display":"flex","alignItems":"baseline","gap":"12px","justifyContent":"space-between"}),
     ], style={"padding":"20px 28px 14px","borderBottom":f"1px solid {GREY}","background":CARD})
 
