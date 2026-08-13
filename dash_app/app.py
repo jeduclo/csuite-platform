@@ -31,21 +31,16 @@ C1=NAVY; C2=BLUE; C3=LBLUE; C4=NAVY2  # chart colour family
 
 # ── SVG ICONS ─────────────────────────────────────────────────────────────────
 ICONS = {
-    "cfo1": "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
-    "cfo2": "M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3",
-    "cfo3": "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
-    "cfo4": "M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z",
-    "cfo5": "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
-    "cfo6": "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z",
+    "cfo1": "📈",
+    "cfo2": "⚖️",
+    "cfo3": "🏦",
+    "cfo4": "📊",
+    "cfo5": "📅",
+    "cfo6": "🧭",
 }
 
 def nav_icon(pid):
-    return html.Svg(
-        html.Path(d=ICONS[pid], stroke="currentColor", strokeWidth="1.8",
-                  strokeLinecap="round", strokeLinejoin="round", fill="none"),
-        viewBox="0 0 24 24", width="16", height="16",
-        style={"flexShrink":"0","marginRight":"10px"},
-    )
+    return html.Span(ICONS[pid], style={"marginRight":"8px","fontSize":"13px"})
 
 # ── PAGES DEF ─────────────────────────────────────────────────────────────────
 PAGES = [
