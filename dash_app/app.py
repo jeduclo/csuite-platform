@@ -454,8 +454,8 @@ def page_working_capital():
 # ── PAGE 3 — SOLVENCY & DEBT ──────────────────────────────────────────────────
 
 def page_solvency():
-    df_cov = get_cached("covenant", "")
-    df_cb = get_cached("cash_burn", "").query("scenario == 'base'")[["week_num","week_label","avg_cash_collected","avg_cash_burn"]]
+    df_cov = query("SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario FROM intel.covenant_tracker ORDER BY period", cache_key="covenant")
+    df_cb = query("SELECT week_num, week_label, avg_cash_collected, avg_cash_burn FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num", cache_key="cash_burn_base")
     df_ar = query("SELECT amount FROM erp.ar_invoices WHERE paid=0", cache_key="ar_unpaid")
 
     ar_out = df_ar["amount"].sum() if not df_ar.empty else 0
@@ -549,8 +549,8 @@ def page_unit_economics():
         JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
         WHERE g.period_start >= DATEADD(month, -28, GETDATE())
     """, cache_key="gl")
-    df_fc = get_cached("forecast", "")
-    df_bud = get_cached("budget", "")
+    df_fc = query("SELECT forecast_month, revenue_forecast, lower_bound, upper_bound FROM intel.revenue_forecast_12m ORDER BY forecast_month", cache_key="forecast")
+    df_bud = query("SELECT SUM(budget_amount) as total FROM erp.budget", cache_key="budget")
 
     if df.empty:
         return html.Div("No GL data", style={"color": SLATE, "padding": "40px"})
