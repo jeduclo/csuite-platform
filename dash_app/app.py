@@ -48,10 +48,15 @@ Start with the most important signal. Use plain language a CFO can act on."""
 # ── DB ────────────────────────────────────────────────────────────────────────
 
 _raw_url = os.environ.get("DATABASE_URL", "")
-# Convert pyodbc URL to pymssql for Render compatibility
-DATABASE_URL = _raw_url.replace(
-    "mssql+pyodbc://", "mssql+pymssql://"
-).split("?")[0] if _raw_url else ""
+import re as _re
+_m = _re.match(r"mssql\+pyodbc://([^:]+):([^@]+)@([^/]+)/([^?]+)", _raw_url)
+if _m:
+    _user, _pwd, _host, _db = _m.groups()
+    from urllib.parse import unquote as _unquote
+    _pwd = _unquote(_pwd)
+    DATABASE_URL = f"mssql+pymssql://{_user}:{_pwd}@{_host}/{_db}"
+else:
+    DATABASE_URL = _raw_url
 
 def get_engine():
     return sqlalchemy.create_engine(DATABASE_URL, connect_args={"timeout": 15})
