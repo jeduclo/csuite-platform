@@ -21,9 +21,12 @@ _brief_cache = {}
 # Data cache — loaded once at startup
 _data_cache = {}
 
-def get_cached(key, sql):
+def get_cached(key, sql=""):
     if key not in _data_cache:
-        _data_cache[key] = query(sql)
+        if sql:
+            _data_cache[key] = query(sql)
+        else:
+            return pd.DataFrame()
     return _data_cache[key].copy()
 
 def preload_data():
@@ -1048,6 +1051,9 @@ app.layout = html.Div([
 ], style={"display": "flex", "background": "#F1F5F9", "minHeight": "100vh", "fontFamily": FONT})
 
 
+# Preload data at module load time (runs for both gunicorn and direct)
+preload_data()
+
 # ── CALLBACKS ─────────────────────────────────────────────────────────────────
 
 @app.callback(
@@ -1193,9 +1199,6 @@ def update_ai_brief(n, page_key):
     text = gemini_summary(title, kpis, question)
     return ai_panel(text)
 
-
-# Preload all data at startup
-preload_data()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8050))
