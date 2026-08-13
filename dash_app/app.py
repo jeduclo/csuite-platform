@@ -8,91 +8,31 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from dash import Dash, dcc, html, Input, Output, ctx, ALL, State
+from dash import Dash, dcc, html, Input, Output, ctx, ALL
 import sqlalchemy
-import anthropic
-from datetime import datetime
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-
-# Simple query cache
-_cache = {}
-
-def gemini_summary(page_title, kpis: dict, question: str) -> str:
-    if page_title in _brief_cache:
-        return _brief_cache[page_title]
-    if not ANTHROPIC_API_KEY:
-        return "Add ANTHROPIC_API_KEY to enable AI summaries."
-    try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        kpi_text = "\n".join([f"- {k}: {v}" for k, v in kpis.items()])
-        prompt = f"""You are a CFO advisor. Analyze these metrics from the '{page_title}' page.
-Business question: {question}
-
-Key metrics:
-{kpi_text}
-
-Write a 3-sentence CFO briefing. Be direct and specific. Flag risks. No vanity metrics. No filler words.
-Start with the most important signal. Use plain language a CFO can act on."""
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=200,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        result = message.content[0].text.strip()
-        _brief_cache[page_title] = result
-        return result
-    except Exception as e:
-        return f"AI summary unavailable: {e}"
 
 # ── DB ────────────────────────────────────────────────────────────────────────
 
-_raw_url = os.environ.get("DATABASE_URL", "")
-import re as _re
-_m = _re.match(r"mssql\+pyodbc://([^:]+):([^@]+)@([^/]+)/([^?]+)", _raw_url)
-if _m:
-    _user, _pwd, _host, _db = _m.groups()
-    from urllib.parse import unquote as _unquote
-    _pwd = _unquote(_pwd)
-    DATABASE_URL = f"mssql+pymssql://{_user}:{_pwd}@{_host}/{_db}"
-else:
-    DATABASE_URL = _raw_url
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-import decimal as _decimal
-
-# Single engine with connection pool
-_engine = None
 def get_engine():
-    global _engine
-    if _engine is None:
-        _engine = sqlalchemy.create_engine(
-            DATABASE_URL,
-            connect_args={"timeout": 15},
-            pool_size=3,
-            max_overflow=0,
-            pool_pre_ping=True,
-        )
-    return _engine
+    return sqlalchemy.create_engine(DATABASE_URL, connect_args={"timeout": 15})
 
-# Simple page-level cache
-_cache = {}
-
-def query(sql: str, cache_key: str = "") -> pd.DataFrame:
-    if cache_key and cache_key in _cache:
-        return _cache[cache_key].copy()
+def query(sql: str) -> pd.DataFrame:
     try:
         with get_engine().connect() as conn:
             result = conn.execute(sqlalchemy.text(sql))
             rows = result.fetchall()
-            cols = list(result.keys())
-            converted = [
-                [float(v) if isinstance(v, _decimal.Decimal) else v for v in row]
-                for row in rows
-            ]
-            df = pd.DataFrame(converted, columns=cols)
-            if cache_key:
-                _cache[cache_key] = df
-            return df.copy()
+            cols = result.keys()
+            import decimal
+            converted = []
+            for row in rows:
+                converted.append([
+                    float(v) if isinstance(v, decimal.Decimal) else v
+                    for v in row
+                ])
+            return pd.DataFrame(converted, columns=list(cols))
     except Exception as e:
         print(f"DB error: {e}")
         return pd.DataFrame()
@@ -265,7 +205,8 @@ def page_financial_velocity():
         FROM erp.gl_ledger g
         JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
         WHERE g.period_start >= DATEADD(month, -28, GETDATE())
-    """, cache_key="gl")
+    """)
+
     if df.empty:
         return html.Div("No GL data available", style={"color": SLATE, "padding": "40px"})
 
@@ -282,7 +223,7 @@ def page_financial_velocity():
     ebitda_pct = ebitda / rev_total * 100 if rev_total else 0
 
     # AR collection rate
-    df_ar = query("SELECT paid, amount FROM erp.ar_invoices", cache_key="ar_simple")
+    df_ar = query("SELECT paid, amount FROM erp.ar_invoices")
     if not df_ar.empty:
         collected = df_ar[df_ar["paid"]==True]["amount"].sum()
         total_ar  = df_ar["amount"].sum()
@@ -343,7 +284,6 @@ def page_financial_velocity():
     ebitda_color = GREEN if ebitda_pct > 0 else RED
     return html.Div([
         page_header(1, "Financial Velocity", "Is the business generating cash efficiently?"),
-        html.Div(id="ai-brief", children=ai_panel("Analyzing financials...", loading=True)),
         kpi_row([
             kpi(f"${rev_total/1e6:.1f}M", "Revenue YTD"),
             kpi(f"${opex_total/1e6:.1f}M", "Total OpEx", AMBER),
@@ -361,8 +301,13 @@ def page_financial_velocity():
 # ── PAGE 2 — WORKING CAPITAL ──────────────────────────────────────────────────
 
 def page_working_capital():
-    df_ar = query("SELECT a.invoice_date, a.due_date, a.amount, a.paid, a.days_past_due, c.customer_name FROM erp.ar_invoices a LEFT JOIN dim.customers c ON a.customer_id = c.customer_id", cache_key="ar_full")
-    df_ap = query("SELECT invoice_date, amount, paid, vendor_id FROM erp.ap_invoices", cache_key="ap")
+    df_ar = query("""
+        SELECT a.invoice_date, a.due_date, a.amount, a.paid, a.days_past_due,
+               c.customer_name
+        FROM erp.ar_invoices a
+        LEFT JOIN dim.customers c ON a.customer_id = c.customer_id
+    """)
+    df_ap = query("SELECT invoice_date, amount, paid FROM erp.ap_invoices")
 
     if df_ar.empty:
         return html.Div("No AR data", style={"color": SLATE, "padding": "40px"})
@@ -434,7 +379,6 @@ def page_working_capital():
     return html.Div([
         page_header(2, "Working Capital & Liquidity Risk",
                     "How efficiently are we managing the cash conversion cycle?"),
-        html.Div(id="ai-brief", children=ai_panel("Analyzing working capital...", loading=True)),
         kpi_row([
             kpi(f"${ar_out/1e6:.2f}M", "AR Outstanding"),
             kpi(f"{dso:.2f}", "DSO", AMBER),
@@ -454,9 +398,15 @@ def page_working_capital():
 # ── PAGE 3 — SOLVENCY & DEBT ──────────────────────────────────────────────────
 
 def page_solvency():
-    df_cov = query("SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario FROM intel.covenant_tracker ORDER BY period", cache_key="covenant")
-    df_cb = query("SELECT week_num, week_label, avg_cash_collected, avg_cash_burn FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num", cache_key="cash_burn_base")
-    df_ar = query("SELECT amount FROM erp.ar_invoices WHERE paid=0", cache_key="ar_unpaid")
+    df_cov = query("""
+        SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario
+        FROM intel.covenant_tracker ORDER BY period
+    """)
+    df_cb = query("""
+        SELECT week_num, week_label, avg_cash_collected, avg_cash_burn
+        FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num
+    """)
+    df_ar = query("SELECT amount FROM erp.ar_invoices WHERE paid=0")
 
     ar_out = df_ar["amount"].sum() if not df_ar.empty else 0
 
@@ -525,7 +475,6 @@ def page_solvency():
     dscr_color = GREEN if dscr > 0 else RED
     return html.Div([
         page_header(3, "Solvency & Debt", "Are we solvent and within our covenants?"),
-        html.Div(id="ai-brief", children=ai_panel("Analyzing solvency...", loading=True)),
         kpi_row([
             kpi(f"{dscr:.0f}", "DSCR Current", dscr_color),
             kpi(f"${net_d/1e6:.2f}M", "Net Debt", AMBER),
@@ -544,13 +493,13 @@ def page_solvency():
 
 def page_unit_economics():
     df = query("""
-        SELECT g.period_start, g.credit_amount, g.debit_amount, c.category, c.account_name
+        SELECT g.period_start, g.credit_amount, g.debit_amount, c.category
         FROM erp.gl_ledger g
         JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month, -28, GETDATE())
-    """, cache_key="gl")
-    df_fc = query("SELECT forecast_month, revenue_forecast, lower_bound, upper_bound FROM intel.revenue_forecast_12m ORDER BY forecast_month", cache_key="forecast")
-    df_bud = query("SELECT SUM(budget_amount) as total FROM erp.budget", cache_key="budget")
+        WHERE g.period_start >= DATEADD(month,-28,GETDATE())
+    """)
+    df_fc = query("SELECT forecast_month, revenue_forecast, lower_bound, upper_bound FROM intel.revenue_forecast_12m ORDER BY forecast_month")
+    df_bud = query("SELECT SUM(budget_amount) as total FROM erp.budget")
 
     if df.empty:
         return html.Div("No GL data", style={"color": SLATE, "padding": "40px"})
@@ -614,7 +563,6 @@ def page_unit_economics():
     return html.Div([
         page_header(4, "Unit Economics & Break-Even",
                     "Are our margins healthy and how close are we to break-even?"),
-        html.Div(id="ai-brief", children=ai_panel("Analyzing unit economics...", loading=True)),
         kpi_row([
             kpi(f"{gross_margin:.1f}%", "Gross Margin %", gm_color),
             kpi(f"{ebitda_avg:.1f}%", "EBITDA Margin Monthly %", GREEN if ebitda_avg>0 else RED),
@@ -644,7 +592,8 @@ def page_cash_forecast():
     base    = df[df["scenario"]=="base"].copy()
     wk13    = base["running_balance"].iloc[-1] if not base.empty else 0
     burn    = base["avg_cash_burn"].mean() if not base.empty else 0
-    ar_val = query("SELECT SUM(amount) as t FROM erp.ar_invoices WHERE paid=0", cache_key="ar_sum")["t"].iloc[0] if True else 0
+    ar_out  = query("SELECT SUM(amount) as t FROM erp.ar_invoices WHERE paid=0")
+    ar_val  = ar_out["t"].iloc[0] if not ar_out.empty else 0
     runway  = ar_val / burn if burn > 0 else 0
 
     # ── Triple line: collected / burn / balance
@@ -709,7 +658,6 @@ def page_cash_forecast():
     wk13_color = GREEN if wk13 > 0 else RED
     return html.Div([
         page_header(5, "13-Week Cash Forecast", "Do we have a cash problem in the next quarter?"),
-        html.Div(id="ai-brief", children=ai_panel("Analyzing cash forecast...", loading=True)),
         kpi_row([
             kpi(f"${wk13/1e6:.1f}M", "Week 13 Cash Balance", wk13_color),
             kpi(f"${burn/1e3:.1f}K", "Weekly Burn Rate", AMBER),
@@ -724,12 +672,14 @@ def page_cash_forecast():
 # ── PAGE 6 — STRATEGIC MODEL ──────────────────────────────────────────────────
 
 def page_strategic_model():
-    df_fc  = query("SELECT forecast_month, revenue_forecast FROM intel.revenue_forecast_12m ORDER BY forecast_month", cache_key="forecast_simple")
-    df_gl  = query("""SELECT g.period_start, g.credit_amount, g.debit_amount, c.category
+    df_fc  = query("SELECT forecast_month, revenue_forecast FROM intel.revenue_forecast_12m ORDER BY forecast_month")
+    df_gl  = query("""
+        SELECT g.period_start, g.credit_amount, g.debit_amount, c.category
         FROM erp.gl_ledger g JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
-        WHERE g.period_start >= DATEADD(month,-28,GETDATE())""", cache_key="gl_simple")
-    df_cov = query("SELECT dscr_proxy FROM intel.covenant_tracker WHERE scenario='base' ORDER BY period DESC", cache_key="cov_base")
-    df_cb  = query("SELECT running_balance FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num DESC", cache_key="cb_base")
+        WHERE g.period_start >= DATEADD(month,-28,GETDATE())
+    """)
+    df_cov = query("SELECT dscr_proxy FROM intel.covenant_tracker WHERE scenario='base' ORDER BY period DESC")
+    df_cb  = query("SELECT running_balance FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num DESC")
 
     if df_gl.empty:
         return html.Div("No data", style={"color": SLATE, "padding": "40px"})
@@ -792,7 +742,6 @@ def page_strategic_model():
     gm_color = GREEN if gm_pct > 30 else AMBER
     return html.Div([
         page_header(6, "Strategic Model", "Is the business structurally healthy for the next 12 months?"),
-        html.Div(id="ai-brief", children=ai_panel("Analyzing strategic position...", loading=True)),
         kpi_row([
             kpi(f"${rev_monthly_sum/1e6:.2f}M", "Revenue (Total)"),
             kpi(f"{dscr_latest:.0f}", "DSCR Current", GREEN if dscr_latest > 0 else RED),
@@ -810,7 +759,7 @@ def page_strategic_model():
 # ── PAGE 7 — MACRO ENVIRONMENT ────────────────────────────────────────────────
 
 def page_macro():
-    df = query("SELECT obs_date, metric_key, value FROM macro.economic_indicators ORDER BY obs_date", cache_key="macro")
+    df = query("SELECT obs_date, metric_key, value FROM macro.economic_indicators ORDER BY obs_date")
 
     if df.empty:
         return html.Div("No macro data", style={"color": SLATE, "padding": "40px"})
@@ -891,8 +840,8 @@ def page_macro():
 # ── PAGE 8 — SECTOR ROTATION ──────────────────────────────────────────────────
 
 def page_sector_rotation():
-    df = query("SELECT obs_date, ticker, description, close_price FROM macro.sector_rotation ORDER BY obs_date", cache_key="sector")
-    df_macro = query("SELECT metric_key, value FROM macro.economic_indicators ORDER BY obs_date DESC", cache_key="macro_desc")
+    df = query("SELECT obs_date, ticker, description, close_price FROM macro.sector_rotation ORDER BY obs_date")
+    df_macro = query("SELECT metric_key, value FROM macro.economic_indicators ORDER BY obs_date DESC")
 
     if df.empty:
         return html.Div("No sector data", style={"color": SLATE, "padding": "40px"})
@@ -1039,8 +988,6 @@ app.layout = html.Div([
     # ── Main
     html.Div([
         dcc.Store(id="active-page", data="cfo1"),
-        dcc.Store(id="ai-store", data={}),
-        dcc.Interval(id="ai-trigger", interval=100, n_intervals=0, max_intervals=1),
         html.Div(id="page-content", style={"padding": "28px 36px 16px"}),
     ], style={"flex": 1, "overflowY": "auto", "background": "#F1F5F9"}),
 
@@ -1092,105 +1039,6 @@ def render_page(key):
     return PAGES[0]["fn"]()
 
 
-# AI brief lookup — maps page key to (title, kpis_fn, question)
-def get_ai_context(page_key):
-    """Returns (title, question) for the AI brief — kpis fetched fresh."""
-    contexts = {
-        "cfo1": ("Financial Velocity", "Is the business generating cash efficiently?"),
-        "cfo2": ("Working Capital & Liquidity Risk", "How efficiently are we managing the cash conversion cycle?"),
-        "cfo3": ("Solvency & Debt", "Are we solvent and within our covenants?"),
-        "cfo4": ("Unit Economics & Break-Even", "Are our margins healthy and how close are we to break-even?"),
-        "cfo5": ("13-Week Cash Forecast", "Do we have a cash problem in the next quarter?"),
-        "cfo6": ("Strategic Model", "Is the business structurally healthy for the next 12 months?"),
-    }
-    return contexts.get(page_key, ("CFO Intelligence", "What does this data tell us?"))
-
-def fetch_kpis_for_page(page_key):
-    """Fetch just the KPIs needed for the AI brief."""
-    try:
-        if page_key == "cfo1":
-            df = query("""SELECT g.credit_amount, g.debit_amount, c.category
-                FROM erp.gl_ledger g JOIN dim.chart_of_accounts c ON g.account_id=c.account_id
-                WHERE g.period_start >= DATEADD(month,-28,GETDATE())""")
-            df_ar = query("SELECT paid, amount FROM erp.ar_invoices")
-            rev = df[df.category=="Revenue"]["credit_amount"].sum()
-            opex = df[df.category.isin(["OpEx","COGS"])]["debit_amount"].sum()
-            cogs = df[df.category=="COGS"]["debit_amount"].sum()
-            ebitda_pct = (rev-opex)/rev*100 if rev else 0
-            coll = df_ar[df_ar.paid==True]["amount"].sum()/df_ar["amount"].sum()*100 if not df_ar.empty else 0
-            return {"Revenue YTD": f"${rev/1e6:.1f}M", "Total OpEx": f"${opex/1e6:.1f}M",
-                    "EBITDA Margin": f"{ebitda_pct:.1f}%", "Collection Rate": f"{coll:.1f}%"}
-        elif page_key == "cfo2":
-            df_ar = query("SELECT amount, paid, days_past_due FROM erp.ar_invoices")
-            df_ap = query("SELECT amount, paid FROM erp.ap_invoices")
-            ar_out = df_ar[df_ar.paid==False]["amount"].sum()
-            coll = df_ar[df_ar.paid==True]["amount"].sum()/df_ar["amount"].sum()*100 if not df_ar.empty else 0
-            dso = df_ar["days_past_due"].mean()
-            ap_burn = df_ap["amount"].sum()/52 if not df_ap.empty else 1
-            runway = ar_out/ap_burn if ap_burn else 0
-            return {"AR Outstanding": f"${ar_out/1e6:.2f}M", "DSO": f"{dso:.1f} days",
-                    "Collection Rate": f"{coll:.1f}%", "Cash Runway": f"{runway:.0f} weeks"}
-        elif page_key == "cfo3":
-            df = query("SELECT dscr_proxy, net_debt, total_liabilities FROM intel.covenant_tracker WHERE scenario='base' ORDER BY period DESC")
-            df_ar = query("SELECT SUM(amount) as t FROM erp.ar_invoices WHERE paid=0")
-            r = df.iloc[0] if not df.empty else None
-            return {"DSCR": f"{r.dscr_proxy:.1f}x" if r is not None else "—",
-                    "Net Debt": f"${r.net_debt/1e6:.2f}M" if r is not None else "—",
-                    "AR Outstanding": f"${df_ar.t.iloc[0]/1e6:.2f}M" if not df_ar.empty else "—"}
-        elif page_key == "cfo4":
-            df = query("""SELECT g.credit_amount, g.debit_amount, c.category
-                FROM erp.gl_ledger g JOIN dim.chart_of_accounts c ON g.account_id=c.account_id
-                WHERE g.period_start >= DATEADD(month,-28,GETDATE())""")
-            rev = df[df.category=="Revenue"]["credit_amount"].sum()
-            cogs = df[df.category=="COGS"]["debit_amount"].sum()
-            opex = df[df.category.isin(["OpEx","COGS"])]["debit_amount"].sum()
-            gm = (rev-cogs)/rev*100 if rev else 0
-            ebitda = (rev-opex)/rev*100 if rev else 0
-            return {"Gross Margin": f"{gm:.1f}%", "EBITDA Margin": f"{ebitda:.1f}%",
-                    "Gross Profit": f"${(rev-cogs)/1e6:.2f}M"}
-        elif page_key == "cfo5":
-            df = query("SELECT avg_cash_burn, running_balance FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num")
-            df_ar = query("SELECT SUM(amount) as t FROM erp.ar_invoices WHERE paid=0")
-            wk13 = df["running_balance"].iloc[-1] if not df.empty else 0
-            burn = df["avg_cash_burn"].mean() if not df.empty else 0
-            ar = df_ar["t"].iloc[0] if not df_ar.empty else 0
-            runway = ar/burn if burn else 0
-            return {"Week-13 Balance": f"${wk13/1e6:.1f}M", "Weekly Burn": f"${burn/1e3:.0f}K",
-                    "Cash Runway": f"{runway:.0f} weeks", "AR Outstanding": f"${ar/1e6:.2f}M"}
-        elif page_key == "cfo6":
-            df = query("""SELECT g.credit_amount, g.debit_amount, c.category
-                FROM erp.gl_ledger g JOIN dim.chart_of_accounts c ON g.account_id=c.account_id
-                WHERE g.period_start >= DATEADD(month,-28,GETDATE())""")
-            df_cb = query("SELECT running_balance FROM intel.cash_burn_weekly WHERE scenario='base' ORDER BY week_num DESC")
-            df_cov = query("SELECT dscr_proxy FROM intel.covenant_tracker WHERE scenario='base' ORDER BY period DESC")
-            rev = df[df.category=="Revenue"]["credit_amount"].sum()
-            cogs = df[df.category=="COGS"]["debit_amount"].sum()
-            gm = (rev-cogs)/rev*100 if rev else 0
-            wk13 = df_cb["running_balance"].iloc[0] if not df_cb.empty else 0
-            dscr = df_cov["dscr_proxy"].iloc[0] if not df_cov.empty else 0
-            return {"12m Revenue": f"${rev/1e6:.1f}M", "Gross Margin": f"{gm:.1f}%",
-                    "DSCR": f"{dscr:.1f}x", "Week-13 Cash": f"${wk13/1e6:.1f}M"}
-    except Exception as e:
-        return {"Error": str(e)}
-    return {}
-
-@app.callback(
-    Output("ai-brief", "children"),
-    Input("ai-trigger", "n_intervals"),
-    Input("active-page", "data"),
-    prevent_initial_call=False,
-)
-def update_ai_brief(n, page_key):
-    if page_key not in ["cfo1","cfo2","cfo3","cfo4","cfo5","cfo6"]:
-        return ai_panel("No AI briefing available for this page.")
-    title, question = get_ai_context(page_key)
-    # Serve from cache instantly — no API call
-    if title in _brief_cache:
-        return ai_panel(_brief_cache[title])
-    # Not cached yet — fetch and store
-    kpis = fetch_kpis_for_page(page_key)
-    text = gemini_summary(title, kpis, question)
-    return ai_panel(text)
 
 
 if __name__ == "__main__":
