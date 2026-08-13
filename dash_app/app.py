@@ -208,26 +208,26 @@ def cfo1():
     ])
 
 def cfo2():
-    ar_out = ar[~ar.paid]["amount"].sum()
-    # Real DSO = weighted avg days past due for unpaid
-    unpaid = ar[~ar.paid]
-    dso = unpaid["days_past_due"].mean() if len(unpaid) else 0
-    coll_rate = ar[ar.paid]["amount"].sum()/ar["amount"].sum()*100
+    # Only unpaid invoices count as AR outstanding
+    unpaid = ar[~ar.paid].copy()
+    ar_out = unpaid["amount"].sum()
+    # Weighted DSO (by amount) — realistic
+    dso = (unpaid["days_past_due"] * unpaid["amount"]).sum() / unpaid["amount"].sum() if len(unpaid) else 0
+    coll_rate = ar[ar.paid]["amount"].sum() / ar["amount"].sum() * 100
     cb_base = cb[cb.scenario=="base"]
     week13_bal = cb_base["running_balance"].iloc[-1]
     weekly_burn = cb_base["avg_cash_burn"].mean()
-    cash_runway = int(week13_bal/weekly_burn) if weekly_burn>0 else 99
+    cash_runway = int(week13_bal / weekly_burn) if weekly_burn > 0 else 99
 
-    # Customer risk scatter — aggregate per customer
-    cust_risk = ar.groupby("customer_id").agg(
-        ar_out=("amount","sum"), avg_dpd=("days_past_due","mean"),
-        paid_rate=("paid","mean")).reset_index()
-    cust_risk = cust_risk[cust_risk["ar_out"]>0]
+    # Customer risk scatter — unpaid only, aggregate per customer
+    cust_risk = unpaid.groupby("customer_id").agg(
+        ar_out=("amount","sum"), avg_dpd=("days_past_due","mean")).reset_index()
     fig_scatter = go.Figure(go.Scatter(
         x=cust_risk["avg_dpd"], y=cust_risk["ar_out"]/1e3,
         mode="markers",
-        marker=dict(size=cust_risk["ar_out"]/cust_risk["ar_out"].max()*20+6,
-                    color=cust_risk["avg_dpd"], colorscale=[[0,LBLUE],[0.5,BLUE],[1,NAVY]],
+        marker=dict(size=cust_risk["ar_out"]/cust_risk["ar_out"].max()*18+6,
+                    color=cust_risk["avg_dpd"],
+                    colorscale=[[0,LBLUE],[0.5,BLUE],[1,NAVY]],
                     showscale=False, opacity=0.78),
         hovertemplate="<b>%{customdata}</b><br>DPD: %{x:.0f}<br>AR: $%{y:.0f}K<extra></extra>",
         customdata=cust_risk["customer_id"],
@@ -235,48 +235,56 @@ def cfo2():
     fig_scatter.add_vline(x=30, line_color=AMBER, line_dash="dash", line_width=1.5,
                           annotation_text="30-day threshold", annotation_font_color=AMBER)
     fig_scatter.update_layout(**bl(showlegend=False,
-                                   xaxis_title="Avg Days Past Due",
+                                   xaxis_title="Days Past Due",
                                    yaxis_title="AR Outstanding ($K)"))
 
-    # AR aging buckets
+    # AR aging — unpaid invoices only, bucketed by days_past_due
     def bucket(dpd):
-        if dpd==0: return "Current"
-        elif dpd<=30: return "1-30"
-        elif dpd<=60: return "31-60"
-        elif dpd<=90: return "61-90"
-        else: return "91+"
-    ar2 = ar.copy(); ar2["bucket"] = ar2["days_past_due"].apply(bucket)
-    aging = ar2.groupby("bucket")["amount"].sum().reindex(["Current","1-30","31-60","61-90","91+"],fill_value=0)
+        if dpd <= 0:  return "Current"
+        elif dpd <= 30: return "1–30"
+        elif dpd <= 60: return "31–60"
+        elif dpd <= 90: return "61–90"
+        else:           return "91+"
+    unpaid2 = unpaid.copy()
+    unpaid2["bucket"] = unpaid2["days_past_due"].apply(bucket)
+    aging = unpaid2.groupby("bucket")["amount"].sum().reindex(
+        ["Current","1–30","31–60","61–90","91+"], fill_value=0)
     fig_aging = go.Figure(go.Bar(
-        x=aging.index, y=aging.values/1e6,
+        x=aging.index, y=aging.values/1e3,
         marker_color=[NAVY, BLUE, LBLUE, AMBER, RED],
-        text=[f"${v/1e6:.2f}M" for v in aging.values], textposition="outside",
+        text=[f"${v/1e3:.0f}K" for v in aging.values], textposition="outside",
     ))
-    fig_aging.update_layout(**bl(showlegend=False,yaxis_tickprefix="$",yaxis_ticksuffix="M"))
+    fig_aging.update_layout(**bl(showlegend=False, yaxis_title="AR ($K)",
+                                  yaxis_tickprefix="$", yaxis_ticksuffix="K"))
 
-    # DSO trend monthly
-    ar3 = ar.copy(); ar3["month"] = ar3["due_date"].dt.to_period("M").dt.to_timestamp()
-    dso_m = ar3[~ar3.paid].groupby("month")["days_past_due"].mean().sort_index()
+    # DSO trend — monthly weighted DSO (unpaid only)
+    unpaid3 = unpaid.copy()
+    unpaid3["month"] = pd.to_datetime(unpaid3["due_date"]).dt.to_period("M").dt.to_timestamp()
+    dso_m = (unpaid3.groupby("month")
+             .apply(lambda g: (g["days_past_due"]*g["amount"]).sum()/g["amount"].sum()
+                    if g["amount"].sum()>0 else 0)
+             .sort_index())
     fig_dso = go.Figure(go.Scatter(
         x=dso_m.index, y=dso_m.values,
         fill="tozeroy", fillcolor="rgba(68,114,196,0.12)",
-        line=dict(color=NAVY, width=2.5), mode="lines+markers", marker=dict(size=5,color=NAVY),
-        name="DSO",
+        line=dict(color=NAVY, width=2.5), mode="lines+markers",
+        marker=dict(size=5, color=NAVY), name="Weighted DSO",
     ))
     fig_dso.add_hline(y=30, line_color=AMBER, line_dash="dot", line_width=1.5,
                       annotation_text="30-day target", annotation_font_color=AMBER)
-    fig_dso.update_layout(**bl(showlegend=False, yaxis_title="Days Past Due", xaxis_title="Month"))
+    fig_dso.update_layout(**bl(showlegend=False, yaxis_title="Weighted Days Past Due",
+                                xaxis_title="Month"))
 
     return html.Div([
         header(2,"Working Capital & Liquidity Risk",SUBTITLES["cfo2"]),
         body(
-            row(kpi("AR Outstanding",f"${ar_out/1e6:.2f}M",NAVY),
-                kpi("Avg Days Past Due",f"{dso:.1f}",AMBER if dso>15 else GREEN),
-                kpi("Collection Rate",f"{coll_rate:.1f}%",GREEN),
-                kpi("Cash Runway Weeks",f"{cash_runway}",GREEN)),
-            row(col(card("Which customers carry the most overdue risk?",fig_scatter)),
-                col(card("Where is AR risk concentrated?",fig_aging))),
-            card("Are we collecting faster or slower over time?",fig_dso,height=270),
+            row(kpi("AR Outstanding", f"${ar_out/1e3:.0f}K", NAVY),
+                kpi("Weighted DSO",   f"{dso:.1f} days",     AMBER if dso>20 else GREEN),
+                kpi("Collection Rate",f"{coll_rate:.1f}%",   GREEN),
+                kpi("Cash Runway",    f"{cash_runway} wks",  GREEN)),
+            row(col(card("Which customers carry the most overdue risk?", fig_scatter)),
+                col(card("Where is AR risk concentrated?", fig_aging))),
+            card("Are we collecting faster or slower over time?", fig_dso, height=270),
         ),
     ])
 
@@ -408,8 +416,8 @@ def cfo4():
             row(kpi("Gross Margin %", f"{gross_m_pct.mean():.1f}%", GREEN),
                 kpi("EBITDA Margin %", f"{ebitda_m_pct.mean():.1f}%", AMBER if ebitda_m_pct.mean()>0 else RED),
                 kpi("Gross Profit", f"${gross_profit/1e6:.2f}M", NAVY),
-                kpi("vs Budget", f"{'+'if budget_var>0 else ''}${budget_var/1e6:.1f}M",
-                    GREEN if budget_var>0 else RED)),
+                kpi("vs Budget", f"{'+'if budget_var>=0 else ''}${budget_var/1e6:.1f}M",
+                    GREEN if budget_var>=0 else RED)),
             row(col(card("Is revenue growing faster than costs?", fig_re)),
                 col(card("What does our 12-month revenue outlook look like?", fig_fc))),
             card("Is cost pressure widening our margin gap?", fig_mg, height=270),
@@ -449,11 +457,12 @@ def cfo5():
             html.Td(f"${r['avg_cash_burn']:,.0f}", style={"padding":"5px 10px","fontSize":"11px","color":AMBER}),
             html.Td(f"${r['running_balance']:,.0f}", style={"padding":"5px 10px","fontSize":"11px","fontWeight":"700","color":GREEN}),
         ]))
+    net_cash = cb_base['avg_cash_collected'].sum() - cb_base['avg_cash_burn'].sum()
     tbl.append(html.Tr([
-        html.Td("Total",style={"padding":"5px 10px","fontSize":"11px","fontWeight":"700","borderTop":f"2px solid {GREY}"}),
+        html.Td("13-Wk Total",style={"padding":"5px 10px","fontSize":"11px","fontWeight":"700","borderTop":f"2px solid {GREY}"}),
         html.Td(f"${cb_base['avg_cash_collected'].sum():,.0f}",style={"padding":"5px 10px","fontSize":"11px","fontWeight":"700","color":NAVY,"borderTop":f"2px solid {GREY}"}),
         html.Td(f"${cb_base['avg_cash_burn'].sum():,.0f}",style={"padding":"5px 10px","fontSize":"11px","fontWeight":"700","color":AMBER,"borderTop":f"2px solid {GREY}"}),
-        html.Td(f"${cb_base['running_balance'].sum():,.0f}",style={"padding":"5px 10px","fontSize":"11px","fontWeight":"700","color":GREEN,"borderTop":f"2px solid {GREY}"}),
+        html.Td(f"${cb_base['running_balance'].iloc[-1]:,.0f} (Wk 13)",style={"padding":"5px 10px","fontSize":"11px","fontWeight":"700","color":GREEN,"borderTop":f"2px solid {GREY}"}),
     ]))
     tbl_card = html.Div([
         html.Div("13-Week Cash Flow Detail",style={"fontSize":"12px","fontWeight":"700","color":NAVY,"marginBottom":"10px"}),
