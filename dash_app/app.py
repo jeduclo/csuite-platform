@@ -21,32 +21,40 @@ _brief_cache = {}
 # Data cache — loaded once at startup
 _data_cache = {}
 
+# SQL registry for auto-loading
+_SQL_REGISTRY = {}
+
+def register_sql(key, sql):
+    _SQL_REGISTRY[key] = sql
+
 def get_cached(key, sql=""):
     if key not in _data_cache:
-        if sql:
-            _data_cache[key] = query(sql)
+        # Try registry first, then passed sql
+        actual_sql = _SQL_REGISTRY.get(key, sql)
+        if actual_sql:
+            _data_cache[key] = query(actual_sql)
         else:
             return pd.DataFrame()
-    return _data_cache[key].copy()
+    return _data_cache[key].copy() if key in _data_cache else pd.DataFrame()
 
 def preload_data():
-    """Load all DB data once at startup."""
+    """Register SQLs and preload data."""
     print("Preloading data cache...")
-    get_cached("gl", """
+    register_sql("gl", """
         SELECT g.period_start, g.credit_amount, g.debit_amount, c.category, c.account_name
         FROM erp.gl_ledger g
         JOIN dim.chart_of_accounts c ON g.account_id = c.account_id
         WHERE g.period_start >= DATEADD(month, -28, GETDATE())
     """)
-    get_cached("ar", "SELECT invoice_date, due_date, amount, paid, days_past_due, customer_id FROM erp.ar_invoices")
-    get_cached("ap", "SELECT invoice_date, amount, paid, vendor_id FROM erp.ap_invoices")
-    get_cached("cash_burn", "SELECT week_num, week_label, avg_cash_collected, avg_cash_burn, running_balance, scenario FROM intel.cash_burn_weekly ORDER BY week_num")
-    get_cached("covenant", "SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario FROM intel.covenant_tracker ORDER BY period")
-    get_cached("forecast", "SELECT forecast_month, revenue_forecast, lower_bound, upper_bound FROM intel.revenue_forecast_12m ORDER BY forecast_month")
-    get_cached("macro", "SELECT obs_date, metric_key, value FROM macro.economic_indicators ORDER BY obs_date")
-    get_cached("sector", "SELECT obs_date, ticker, description, close_price FROM macro.sector_rotation ORDER BY obs_date")
-    get_cached("customers", "SELECT customer_id, customer_name FROM dim.customers")
-    get_cached("budget", "SELECT SUM(budget_amount) as total FROM erp.budget")
+    register_sql("ar", "SELECT invoice_date, due_date, amount, paid, days_past_due, customer_id FROM erp.ar_invoices")
+    register_sql("ap", "SELECT invoice_date, amount, paid, vendor_id FROM erp.ap_invoices")
+    register_sql("cash_burn", "SELECT week_num, week_label, avg_cash_collected, avg_cash_burn, running_balance, scenario FROM intel.cash_burn_weekly ORDER BY week_num")
+    register_sql("covenant", "SELECT period, dscr_proxy, debt_ebitda, net_debt, total_liabilities, scenario FROM intel.covenant_tracker ORDER BY period")
+    register_sql("forecast", "SELECT forecast_month, revenue_forecast, lower_bound, upper_bound FROM intel.revenue_forecast_12m ORDER BY forecast_month")
+    register_sql("macro", "SELECT obs_date, metric_key, value FROM macro.economic_indicators ORDER BY obs_date")
+    register_sql("sector", "SELECT obs_date, ticker, description, close_price FROM macro.sector_rotation ORDER BY obs_date")
+    register_sql("customers", "SELECT customer_id, customer_name FROM dim.customers")
+    register_sql("budget", "SELECT SUM(budget_amount) as total FROM erp.budget")
     print("Data cache loaded.")
 
 def gemini_summary(page_title, kpis: dict, question: str) -> str:
