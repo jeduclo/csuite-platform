@@ -2,7 +2,7 @@
 
 // Replace DASH_URL with your Render app URL once deployed
 // e.g. https://cfo-intelligence-dash.onrender.com
-const DASH_URL = process.env.NEXT_PUBLIC_DASH_URL || "https://cfo-intelligence-dash.onrender.com";
+const DASH_URL = "https://csuite-platform-production.up.railway.app";
 
 export default function CFOPage() {
   return (
