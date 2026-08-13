@@ -4,3 +4,4 @@ pandas==3.0.5
 sqlalchemy==2.0.30
 pymssql==2.3.4
 gunicorn==22.0.0
+anthropic
