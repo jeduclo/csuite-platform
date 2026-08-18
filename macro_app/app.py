@@ -584,7 +584,8 @@ def macro5():
                    annotation_text="2% pre-pandemic norm",
                    annotation_font_color=GREEN, annotation_font_size=9)
     fig1.update_layout(**bl(showlegend=False, yaxis_ticksuffix="%",
-                             yaxis_title="Average Wage Growth YoY"))
+                            yaxis_title="Average Wage Growth YoY",
+                            xaxis_range=["2022-01-01", None]))
 
     # Chart 2: Labour participation — fix Y axis to 60–70% range
     fig2 = go.Figure(go.Scatter(
