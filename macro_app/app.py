@@ -573,7 +573,7 @@ def macro5():
         rev_per_emp = 165_000  # $33M rev / 200 employees
 
     # Chart 1: Wage growth YoY — fix Y axis range
-    wages_s = wages.sort_values("date")
+    wages_s = wages[wages["date"] >= "2022-01-01"].sort_values("date")
     fig1 = go.Figure(go.Scatter(
         x=wages_s["date"], y=wages_s["wage_yoy"],
         fill="tozeroy", fillcolor="rgba(30,58,138,0.10)",
