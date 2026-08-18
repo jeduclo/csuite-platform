@@ -69,7 +69,6 @@ export default function HomePage() {
         position: "relative",
         overflow: "hidden",
       }}>
-        {/* Grid background */}
         <div style={{
           position: "absolute", inset: 0,
           backgroundImage: "linear-gradient(rgba(37,99,235,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(37,99,235,0.06) 1px, transparent 1px)",
@@ -78,7 +77,6 @@ export default function HomePage() {
         }} />
 
         <div style={{ maxWidth: "1100px", margin: "0 auto", position: "relative" }}>
-          {/* Eyebrow */}
           <div style={{
             display: "inline-flex", alignItems: "center", gap: "8px",
             background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)",
@@ -90,7 +88,6 @@ export default function HomePage() {
             </span>
           </div>
 
-          {/* Headline */}
           <h1 style={{
             fontSize: "clamp(36px, 5vw, 64px)",
             fontWeight: "800",
@@ -114,7 +111,6 @@ export default function HomePage() {
             to give your CFO, CEO and CRO answers they cannot get anywhere else — in under 60 seconds.
           </p>
 
-          {/* CTAs */}
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "72px" }}>
             <Link href="/cfo" style={{
               background: "#2563EB", color: "#fff",
@@ -136,7 +132,6 @@ export default function HomePage() {
             </a>
           </div>
 
-          {/* Live signal strip */}
           <div style={{ marginBottom: "12px" }}>
             <p style={{ fontSize: "11px", color: "#475569", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "16px" }}>
               Platform signals — updating live
@@ -217,7 +212,6 @@ export default function HomePage() {
             Microsoft Fabric only when the economics justify it.
           </p>
 
-          {/* Pipeline diagram */}
           <div style={{ display: "flex", alignItems: "center", gap: "0", flexWrap: "wrap", marginBottom: "64px" }}>
             {[
               { label: "Your ERP", sub: "SAP · Oracle · Dynamics · Custom", icon: "🗄️" },
@@ -246,7 +240,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* 4 pillars */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "24px" }}>
             {[
               { title: "Know where you stand", desc: "Real-time financial health across cash, margin, covenant, and credit risk — in one view.", accent: "#2563EB" },
@@ -254,10 +247,7 @@ export default function HomePage() {
               { title: "Know what to do", desc: "Every dashboard surfaces a recommended action — not just a number.", accent: "#059669" },
               { title: "Macro-aware", desc: "BoC rates, yield curve, StatCan data, and TSX sector rotation baked in — for free.", accent: "#F59E0B" },
             ].map((p, i) => (
-              <div key={i} style={{
-                borderTop: `3px solid ${p.accent}`,
-                padding: "28px 0 0",
-              }}>
+              <div key={i} style={{ borderTop: `3px solid ${p.accent}`, padding: "28px 0 0" }}>
                 <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#F1F5F9", marginBottom: "10px" }}>{p.title}</h3>
                 <p style={{ fontSize: "14px", color: "#64748B", lineHeight: "1.6" }}>{p.desc}</p>
               </div>
@@ -331,8 +321,8 @@ export default function HomePage() {
               padding: "40px",
               position: "relative",
             }}>
-              <p style={{ fontSize: "12px", color: "#F59E0B", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, marginBottom: "16px" }}>
-                Coming Soon
+              <p style={{ fontSize: "12px", color: "#2563EB", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, marginBottom: "16px" }}>
+                Available Now
               </p>
               <h3 style={{ fontSize: "24px", fontWeight: "800", color: "#0F172A", marginBottom: "16px", lineHeight: "1.3" }}>
                 Macro Intelligence Dashboard
@@ -344,21 +334,21 @@ export default function HomePage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "36px" }}>
                 {["Bank of Canada rate trajectory", "Yield curve recession signal", "Cyclical vs defensive rotation", "Macro cycle phase classification"].map(f => (
                   <div key={f} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{ width: "16px", height: "16px", borderRadius: "50%", background: "#FEF9C3", border: "1px solid #F59E0B", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#F59E0B" }} />
+                    <div style={{ width: "16px", height: "16px", borderRadius: "50%", background: "#EFF6FF", border: "1px solid #2563EB", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2563EB" }} />
                     </div>
                     <span style={{ fontSize: "13px", color: "#64748B" }}>{f}</span>
                   </div>
                 ))}
               </div>
-              <div style={{
-                background: "#F8FAFC", border: "1px solid #E2E8F0",
-                borderRadius: "8px", padding: "13px 24px",
-                fontSize: "14px", color: "#94A3B8", fontWeight: "500",
-                display: "inline-block",
+              <Link href="/macro" style={{
+                background: "#0A1628", color: "#fff",
+                padding: "13px 24px", borderRadius: "8px",
+                fontWeight: "600", fontSize: "14px",
+                textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "8px",
               }}>
-                In Development
-              </div>
+                Launch Macro Demo →
+              </Link>
             </div>
           </div>
         </div>
