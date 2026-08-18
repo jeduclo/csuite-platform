@@ -6,7 +6,7 @@ export default function NavBar() {
         C-Suite Intelligence
       </Link>
       <div className="flex gap-6 text-sm text-slate-600">
-        <Link href="/" className="hover:text-slate-900">Home</Link>
+        <Link href="/" className="hover:text-slate-900 font-medium text-blue-700">Home</Link>
         <Link href="/cfo" className="hover:text-slate-900 font-medium text-blue-700">CFO Dashboard</Link>
         <Link href="/macro" className="hover:text-slate-900 font-medium text-blue-700">Macro Dashboard</Link>
       </div>
