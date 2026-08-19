@@ -9,6 +9,7 @@ export default function NavBar() {
         <Link href="/" className="hover:text-slate-900 font-medium text-blue-700">Home</Link>
         <Link href="/cfo" className="hover:text-slate-900 font-medium text-blue-700">CFO Dashboard</Link>
         <Link href="/macro" className="hover:text-slate-900 font-medium text-blue-700">Macro Dashboard</Link>
+        <Link href="/about" className="hover:text-slate-900 font-medium text-blue-700">About</Link>
       </div>
     </nav>
   );
