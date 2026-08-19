@@ -121,7 +121,7 @@ export default function HomePage() {
               See the CFO Demo
               <span style={{ fontSize: "18px" }}>→</span>
             </Link>
-            <a href="mailto:contact@csuite.ai" style={{
+            <a href="https://calendly.com/jeanalegue/30min" style={{
               background: "transparent", color: "#CBD5E1",
               padding: "14px 28px", borderRadius: "8px",
               fontWeight: "500", fontSize: "15px",
@@ -393,7 +393,7 @@ export default function HomePage() {
             We start with a 45-minute discovery call. No slides. We connect to your data and show you three insights your team has never seen before.
           </p>
           <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
-            <a href="mailto:contact@csuite.ai" style={{
+            <a href="https://calendly.com/jeanalegue/30min" style={{
               background: "#2563EB", color: "#fff",
               padding: "16px 36px", borderRadius: "8px",
               fontWeight: "700", fontSize: "16px",
