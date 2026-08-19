@@ -44,14 +44,15 @@ export default function AboutPage() {
                 fontSize: "clamp(36px, 4vw, 56px)", fontWeight: "800",
                 color: "#F8FAFC", lineHeight: "1.1", letterSpacing: "-0.03em", marginBottom: "16px",
               }}>
-                Jean Duclos
+                Jean Duclos, PhD
               </h1>
               <p style={{ fontSize: "18px", color: "#94A3B8", lineHeight: "1.7", maxWidth: "600px", marginBottom: "32px" }}>
                 BI Architect and Principal Consultant with 16+ years building analytical platforms
                 that turn raw ERP data into decisions C-suite executives can act on — in minutes, not months.
+                Professor of Macroeconomics and Computational Macro-Strategy at Dawson College, Montréal.
               </p>
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                {["PhD · Environmental Economics", "MSc · Big Data Analytics", "Bilingual EN/FR"].map(tag => (
+                {["PhD · Environmental Economics", "MSc · Big Data Analytics", "Professor · Dawson College", "Bilingual EN/FR"].map(tag => (
                   <div key={tag} style={{
                     background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: "100px", padding: "6px 16px",
@@ -81,13 +82,15 @@ export default function AboutPage() {
               had no answer.
             </p>
             <p>
-              I built C-Suite Intelligence to close that gap. Not with another dashboard layer on top of Power BI,
-              but with a platform that connects your ERP transactions to external macro signals, runs probabilistic forecasts,
-              and surfaces a recommended action — in under 60 seconds.
+              Teaching macroeconomics and computational macro-strategy at Dawson College sharpened my conviction
+              that the tools to answer these questions already exist — they just haven&apos;t been assembled for the mid-market CFO.
+              I built C-Suite Intelligence to close that gap.
             </p>
             <p>
-              The architecture is designed to be deployed at a fraction of the cost of enterprise alternatives like Anaplan or Adaptive,
-              using the medallion pattern on Azure infrastructure your team already understands.
+              The architecture selects the right tool for each layer of the problem — dlt for schema-resilient ingestion,
+              DuckDB for cost-efficient transformation, dbt for governed Gold models, XGBoost and Chronos for prediction —
+              and introduces Microsoft Fabric or ADF only when the economics justify it.
+              The result is enterprise-grade decision intelligence at infrastructure cost.
             </p>
           </div>
         </div>
@@ -105,11 +108,11 @@ export default function AboutPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "32px" }}>
             {[
               { icon: "🏗️", title: "Architecture-First", desc: "Every engagement starts with structured discovery workshops with the CFO, CRO, and DPO — before a single line of code is written. The architecture is co-designed with the client." },
-              { icon: "📊", title: "End-to-End Delivery", desc: "From ingestion (Salesforce, SAP, ERP REST APIs) to governed semantic models in Microsoft Fabric and Power BI — with RLS, OLS, and Purview lineage throughout." },
-              { icon: "🤖", title: "Predictive Modelling", desc: "XGBoost, Random Forest, and time-series forecasting with SHAP explainability — translating ML outputs into narratives executives can present to their board." },
+              { icon: "📊", title: "End-to-End Delivery", desc: "From ingestion (Salesforce, SAP, ERP REST APIs) through Bronze/Silver/Gold medallion layers to governed Power BI semantic models — with RLS, OLS, and full lineage throughout." },
+              { icon: "🤖", title: "Predictive Modelling", desc: "XGBoost, Random Forest, and Chronos time-series forecasting with SHAP explainability — translating ML outputs into narratives executives can present to their board." },
               { icon: "🔒", title: "Governance & Compliance", desc: "Microsoft Purview implementations covering GDPR right-to-erasure, DLP, sensitivity labels, and ICO-ready audit trails. Clients have passed external audits with zero findings." },
               { icon: "🌎", title: "Macro Intelligence", desc: "PhD-level grounding in economics applied to real business problems — BoC rate trajectories, yield curve signals, and TSX sector rotation translated into capital allocation decisions." },
-              { icon: "🤝", title: "Board-Level Communication", desc: "Experienced presenting architecture and compliance postures to executive committees and boards. Bilingual delivery in English and French." },
+              { icon: "🎓", title: "Academic Rigour", desc: "Professor of Macroeconomics and Computational Macro-Strategy at Dawson College, Montréal. Every model delivered to clients is grounded in the same rigour taught in the classroom." },
             ].map((item, i) => (
               <div key={i} style={{
                 background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
@@ -124,45 +127,86 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* OUTCOMES */}
+      {/* HOW WE ANSWER THE QUESTIONS */}
       <section style={{ padding: "96px 24px", background: "#F8FAFC" }}>
         <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
           <p style={{ fontSize: "12px", color: "#2563EB", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, marginBottom: "16px" }}>
-            Selected Outcomes
+            How We Answer the Questions
           </p>
-          <h2 style={{ fontSize: "clamp(28px, 3vw, 40px)", fontWeight: "800", color: "#0A1628", letterSpacing: "-0.02em", lineHeight: "1.2", marginBottom: "56px" }}>
-            What this looks like in practice.
+          <h2 style={{ fontSize: "clamp(28px, 3vw, 40px)", fontWeight: "800", color: "#0A1628", letterSpacing: "-0.02em", lineHeight: "1.2", marginBottom: "16px" }}>
+            The right tool for each layer. No over-engineering.
           </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <p style={{ fontSize: "16px", color: "#64748B", lineHeight: "1.7", maxWidth: "680px", marginBottom: "56px" }}>
+            We select the architecture based on what the question requires — not on vendor relationships.
+            ADF and Microsoft Fabric are introduced only when the volume or governance requirements justify the cost.
+          </p>
+
+          {/* Pipeline visual */}
+          <div style={{
+            background: "#0A1628", borderRadius: "20px", padding: "48px",
+            marginBottom: "56px", overflowX: "auto",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0", minWidth: "700px", justifyContent: "center" }}>
+              {[
+                { label: "ERP / Macro APIs", sub: "Your source systems", icon: "🗄️", color: "#2563EB" },
+                { label: "ADLS Gen2 Bronze", sub: "dlt · schema auto-detect", icon: "📥", color: "#7C3AED" },
+                { label: "ADLS Gen2 Silver", sub: "DuckDB · ACI compute", icon: "⚙️", color: "#059669" },
+                { label: "Gold Lakehouse", sub: "dbt · models & tests", icon: "🏔️", color: "#F59E0B" },
+                { label: "Power BI", sub: "XGBoost · Chronos · ML", icon: "📊", color: "#2563EB" },
+              ].map((step, i, arr) => (
+                <div key={i} style={{ display: "flex", alignItems: "center" }}>
+                  <div style={{
+                    background: "rgba(255,255,255,0.04)", border: `1px solid ${step.color}40`,
+                    borderRadius: "12px", padding: "20px", textAlign: "center", minWidth: "130px",
+                  }}>
+                    <div style={{ fontSize: "24px", marginBottom: "8px" }}>{step.icon}</div>
+                    <div style={{ fontSize: "12px", fontWeight: "700", color: step.color, marginBottom: "4px" }}>{step.label}</div>
+                    <div style={{ fontSize: "10px", color: "#64748B" }}>{step.sub}</div>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <div style={{ padding: "0 6px", color: "#334155", fontSize: "18px" }}>→</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p style={{ textAlign: "center", fontSize: "12px", color: "#475569", marginTop: "24px" }}>
+              ADF replaces dlt · Microsoft Fabric replaces ADLS + DuckDB + Azure SQL — when volume or governance economics justify it
+            </p>
+          </div>
+
+          {/* Questions answered */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {[
               {
-                client: "Multi-Site Retail Chain · 14 Locations · UK",
-                outcome: "Markdown decisions moved from a two-week lag to same-day. Overstock write-downs fell 18%. Client passed its ICO-facing GDPR audit with zero findings.",
-                tags: ["Microsoft Fabric", "Power BI", "Purview", "GDPR"],
+                q: "What will our cash position be in 90 days?",
+                how: "AP/AR transactions ingested via dlt into Bronze, cleaned in DuckDB Silver, modelled in dbt Gold. Chronos runs probabilistic P10/P50/P90 forecasts on the Gold layer. Output surfaced in Power BI in under 60 seconds.",
+                tags: ["dlt", "DuckDB", "dbt", "Chronos", "Power BI"],
               },
               {
-                client: "B2B National Distributor · 6 Regions · UK",
-                outcome: "Cross-regional pipeline consolidation reduced from 5 days to hours. XGBoost churn model with SHAP explanations surfaced directly in account-manager reports.",
-                tags: ["Salesforce Integration", "XGBoost", "SHAP", "RLS/OLS"],
+                q: "Are we heading toward a covenant breach?",
+                how: "DSCR computed from Gold financial models updated on each ERP ingestion cycle. Stress-tested at +100 and +200bps using scenario parameters stored in dbt. Alert threshold breaches trigger Power Automate notifications before the close.",
+                tags: ["dbt", "Azure SQL", "Power BI", "Power Automate"],
               },
               {
-                client: "C-Suite Intelligence Platform · Canada",
-                outcome: "File-based architecture delivering 12 CFO-grade answers — 13-week cash forecast, covenant breach alerts, customer default probability — at ~$150/month infrastructure cost.",
-                tags: ["Dash", "Python", "Parquet", "Next.js"],
+                q: "Which customers will default before they miss a payment?",
+                how: "AR aging, payment history, and sector macro signals joined in the Gold layer. XGBoost ensemble scores every active account weekly with SHAP waterfall explanations surfaced directly in the account-manager view.",
+                tags: ["XGBoost", "SHAP", "dbt Gold", "Macro APIs"],
+              },
+              {
+                q: "Where is macro risk entering our cost structure?",
+                how: "BoC rate trajectory, CPI/IPPI compression, and TSX sector rotation ingested from public APIs alongside your ERP data. dbt models link external signals to your margin and covenant metrics — no manual Excel overlays.",
+                tags: ["BoC API", "StatCan", "FRED", "dbt", "Power BI"],
               },
             ].map((item, i) => (
               <div key={i} style={{
                 background: "#fff", border: "1px solid #E2E8F0", borderRadius: "16px",
-                padding: "32px", display: "flex", gap: "32px", flexWrap: "wrap",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                padding: "32px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}>
-                <div style={{ flex: 1, minWidth: "200px" }}>
-                  <p style={{ fontSize: "12px", color: "#64748B", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "8px" }}>
-                    {item.client}
-                  </p>
-                  <p style={{ fontSize: "16px", color: "#0F172A", lineHeight: "1.7" }}>{item.outcome}</p>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "flex-start", minWidth: "200px" }}>
+                <p style={{ fontSize: "17px", fontWeight: "700", color: "#0F172A", lineHeight: "1.4", marginBottom: "12px" }}>
+                  &ldquo;{item.q}&rdquo;
+                </p>
+                <p style={{ fontSize: "15px", color: "#334155", lineHeight: "1.7", marginBottom: "16px" }}>{item.how}</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                   {item.tags.map(tag => (
                     <div key={tag} style={{
                       background: "#EFF6FF", border: "1px solid #BFDBFE",
