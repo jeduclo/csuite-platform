@@ -48,7 +48,7 @@ export default function AboutPage() {
               </h1>
               <p style={{ fontSize: "18px", color: "#94A3B8", lineHeight: "1.7", maxWidth: "600px", marginBottom: "32px" }}>
                 BI Architect and Principal Consultant with 16+ years building analytical platforms
-                that turn raw ERP data into decisions C-suite executives can act on — in minutes, not months.
+                that turn raw ERP data into decisions C-suite executives can act on - in minutes, not months.
                 Professor of Macroeconomics and Computational Macro-Strategy at Dawson College, Montréal.
               </p>
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
@@ -78,17 +78,17 @@ export default function AboutPage() {
             <p>
               After 16 years designing analytical platforms for mid-market companies across the UK and Canada,
               I kept seeing the same gap: finance teams drowning in ERP reports that told them what happened last month,
-              while the questions that actually mattered — cash in 90 days, which customers will default, are we heading for a covenant breach —
+              while the questions that actually mattered - cash in 90 days, which customers will default, are we heading for a covenant breach -
               had no answer.
             </p>
             <p>
               Teaching macroeconomics and computational macro-strategy at Dawson College sharpened my conviction
-              that the tools to answer these questions already exist — they just haven&apos;t been assembled for the mid-market CFO.
+              that the tools to answer these questions already exist - they just haven&apos;t been assembled for the mid-market CFO.
               I built C-Suite Intelligence to close that gap.
             </p>
             <p>
-              The architecture selects the right tool for each layer of the problem — dlt for schema-resilient ingestion,
-              DuckDB for cost-efficient transformation, dbt for governed Gold models, XGBoost and Chronos for prediction —
+              The architecture selects the right tool for each layer of the problem - dlt for schema-resilient ingestion,
+              DuckDB for cost-efficient transformation, dbt for governed Gold models, XGBoost and Chronos for prediction -
               and introduces Microsoft Fabric or ADF only when the economics justify it.
               The result is enterprise-grade decision intelligence at infrastructure cost.
             </p>
@@ -107,11 +107,11 @@ export default function AboutPage() {
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "32px" }}>
             {[
-              { icon: "🏗️", title: "Architecture-First", desc: "Every engagement starts with structured discovery workshops with the CFO, CRO, and DPO — before a single line of code is written. The architecture is co-designed with the client." },
-              { icon: "📊", title: "End-to-End Delivery", desc: "From ingestion (Salesforce, SAP, ERP REST APIs) through Bronze/Silver/Gold medallion layers to governed Power BI semantic models — with RLS, OLS, and full lineage throughout." },
-              { icon: "🤖", title: "Predictive Modelling", desc: "XGBoost, Random Forest, and Chronos time-series forecasting with SHAP explainability — translating ML outputs into narratives executives can present to their board." },
+              { icon: "🏗️", title: "Architecture-First", desc: "Every engagement starts with structured discovery workshops with the CFO, CRO, and DPO - before a single line of code is written. The architecture is co-designed with the client." },
+              { icon: "📊", title: "End-to-End Delivery", desc: "From ingestion (Salesforce, SAP, ERP REST APIs) through Bronze/Silver/Gold medallion layers to governed Power BI semantic models - with RLS, OLS, and full lineage throughout." },
+              { icon: "🤖", title: "Predictive Modelling", desc: "XGBoost, Random Forest, and Chronos time-series forecasting with SHAP explainability - translating ML outputs into narratives executives can present to their board." },
               { icon: "🔒", title: "Governance & Compliance", desc: "Microsoft Purview implementations covering GDPR right-to-erasure, DLP, sensitivity labels, and ICO-ready audit trails. Clients have passed external audits with zero findings." },
-              { icon: "🌎", title: "Macro Intelligence", desc: "PhD-level grounding in economics applied to real business problems — BoC rate trajectories, yield curve signals, and TSX sector rotation translated into capital allocation decisions." },
+              { icon: "🌎", title: "Macro Intelligence", desc: "PhD-level grounding in economics applied to real business problems - BoC rate trajectories, yield curve signals, and TSX sector rotation translated into capital allocation decisions." },
               { icon: "🎓", title: "Academic Rigour", desc: "Professor of Macroeconomics and Computational Macro-Strategy at Dawson College, Montréal. Every model delivered to clients is grounded in the same rigour taught in the classroom." },
             ].map((item, i) => (
               <div key={i} style={{
@@ -137,7 +137,7 @@ export default function AboutPage() {
             The right tool for each layer. No over-engineering.
           </h2>
           <p style={{ fontSize: "16px", color: "#64748B", lineHeight: "1.7", maxWidth: "680px", marginBottom: "56px" }}>
-            We select the architecture based on what the question requires — not on vendor relationships.
+            We select the architecture based on what the question requires - not on vendor relationships.
             ADF and Microsoft Fabric are introduced only when the volume or governance requirements justify the cost.
           </p>
 
@@ -170,7 +170,7 @@ export default function AboutPage() {
               ))}
             </div>
             <p style={{ textAlign: "center", fontSize: "12px", color: "#475569", marginTop: "24px" }}>
-              ADF replaces dlt · Microsoft Fabric replaces ADLS + DuckDB + Azure SQL — when volume or governance economics justify it
+              ADF replaces dlt · Microsoft Fabric replaces ADLS + DuckDB + Azure SQL - when volume or governance economics justify it
             </p>
           </div>
 
@@ -194,7 +194,7 @@ export default function AboutPage() {
               },
               {
                 q: "Where is macro risk entering our cost structure?",
-                how: "BoC rate trajectory, CPI/IPPI compression, and TSX sector rotation ingested from public APIs alongside your ERP data. dbt models link external signals to your margin and covenant metrics — no manual Excel overlays.",
+                how: "BoC rate trajectory, CPI/IPPI compression, and TSX sector rotation ingested from public APIs alongside your ERP data. dbt models link external signals to your margin and covenant metrics - no manual Excel overlays.",
                 tags: ["BoC API", "StatCan", "FRED", "dbt", "Power BI"],
               },
             ].map((item, i) => (

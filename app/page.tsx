@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const signals = [
-  { label: "Cash Position — Week 13", values: ["$6.97M", "$7.2M", "$6.8M"], status: "healthy" },
+  { label: "Cash Position - Week 13", values: ["$6.97M", "$7.2M", "$6.8M"], status: "healthy" },
   { label: "DSCR vs Covenant Floor", values: ["−5.33×", "−4.1×", "−6.2×"], status: "breach" },
   { label: "Revenue Forecast P50", values: ["$1.06M", "$1.1M", "$0.99M"], status: "watch" },
 ];
@@ -99,7 +99,7 @@ export default function HomePage() {
           }}>
             Your ERP tells you<br />
             <span style={{ color: "#2563EB" }}>what happened.</span><br />
-            We tell you what&apos;s coming —<br />
+            We tell you what&apos;s coming -<br />
             and what to do about it.
           </h1>
 
@@ -108,7 +108,7 @@ export default function HomePage() {
             maxWidth: "560px", marginBottom: "44px",
           }}>
             We connect your internal ERP data with external macro signals and predictive models
-            to give your CFO, CEO and CRO answers they cannot get anywhere else — in under 60 seconds.
+            to give your CFO, CEO and CRO answers they cannot get anywhere else - in under 60 seconds.
           </p>
 
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "72px" }}>
@@ -134,7 +134,7 @@ export default function HomePage() {
 
           <div style={{ marginBottom: "12px" }}>
             <p style={{ fontSize: "11px", color: "#475569", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "16px" }}>
-              Platform signals — updating live
+              Platform signals - updating live
             </p>
             <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
               {signals.map(s => <LiveSignal key={s.label} {...s} />)}
@@ -157,7 +157,7 @@ export default function HomePage() {
             {[
               {
                 q: "What will our cash position be in 90 days?",
-                erp: "A static roll-forward built in Excel — already stale.",
+                erp: "A static roll-forward built in Excel - already stale.",
                 us: "Probabilistic P10/P50/P90 forecast, updated weekly from your AP/AR data.",
               },
               {
@@ -207,7 +207,7 @@ export default function HomePage() {
             Platform-agnostic. Built on the medallion architecture. Designed to minimise cost.
           </h2>
           <p style={{ fontSize: "16px", color: "#64748B", maxWidth: "580px", lineHeight: "1.7", marginBottom: "64px" }}>
-            We meet you where you are. Whether you run SAP, Oracle, Dynamics or a custom ERP —
+            We meet you where you are. Whether you run SAP, Oracle, Dynamics or a custom ERP -
             we layer Azure Data Factory, Data Lake, Azure SQL and Power BI on top, and introduce
             Microsoft Fabric only when the economics justify it.
           </p>
@@ -242,10 +242,10 @@ export default function HomePage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "24px" }}>
             {[
-              { title: "Know where you stand", desc: "Real-time financial health across cash, margin, covenant, and credit risk — in one view.", accent: "#2563EB" },
+              { title: "Know where you stand", desc: "Real-time financial health across cash, margin, covenant, and credit risk - in one view.", accent: "#2563EB" },
               { title: "See what's coming", desc: "Chronos and XGBoost models give you probabilistic forecasts, not point estimates.", accent: "#7C3AED" },
-              { title: "Know what to do", desc: "Every dashboard surfaces a recommended action — not just a number.", accent: "#059669" },
-              { title: "Macro-aware", desc: "BoC rates, yield curve, StatCan data, and TSX sector rotation baked in — for free.", accent: "#F59E0B" },
+              { title: "Know what to do", desc: "Every dashboard surfaces a recommended action - not just a number.", accent: "#059669" },
+              { title: "Macro-aware", desc: "BoC rates, yield curve, StatCan data, and TSX sector rotation baked in - for free.", accent: "#F59E0B" },
             ].map((p, i) => (
               <div key={i} style={{ borderTop: `3px solid ${p.accent}`, padding: "28px 0 0" }}>
                 <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#F1F5F9", marginBottom: "10px" }}>{p.title}</h3>
@@ -291,7 +291,7 @@ export default function HomePage() {
               </h3>
               <p style={{ fontSize: "14px", color: "#64748B", lineHeight: "1.7", marginBottom: "32px" }}>
                 8 pages. 12 questions your ERP cannot answer. Cash forecasting, covenant tracking,
-                customer default scoring, macro signals — all embedded in one dashboard.
+                customer default scoring, macro signals - all embedded in one dashboard.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "36px" }}>
                 {["13-week probabilistic cash forecast", "DSCR trend vs covenant floor", "60-day customer default probability", "TSX sector rotation signal"].map(f => (
@@ -328,7 +328,7 @@ export default function HomePage() {
                 Macro Intelligence Dashboard
               </h3>
               <p style={{ fontSize: "14px", color: "#64748B", lineHeight: "1.7", marginBottom: "32px" }}>
-                BoC policy trajectory, yield curve analysis, CPI vs IPPI compression, TSX sector rotation —
+                BoC policy trajectory, yield curve analysis, CPI vs IPPI compression, TSX sector rotation -
                 translated into a capital allocation posture your board can act on.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "36px" }}>
@@ -367,7 +367,7 @@ export default function HomePage() {
               </p>
             </div>
             {[
-              { number: "~$150", unit: "CAD/month", label: "What you pay — full infrastructure cost of our platform (ADF, Data Lake, Azure SQL, Power BI Pro)" },
+              { number: "~$150", unit: "CAD/month", label: "What you pay - full infrastructure cost of our platform (ADF, Data Lake, Azure SQL, Power BI Pro)" },
               { number: "$200K–$500K", unit: "per year", label: "What comparable enterprise platforms charge (Anaplan, Adaptive, SAP Analytics) for the same capability" },
               { number: "60 sec", unit: "or less", label: "Time for a CFO to answer any of 12 questions the ERP cannot touch" },
             ].map((stat, i) => (
