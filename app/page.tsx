@@ -363,12 +363,12 @@ export default function HomePage() {
                 The ROI case writes itself.
               </h2>
               <p style={{ fontSize: "15px", color: "#BFDBFE", lineHeight: "1.6", marginTop: "12px" }}>
-                Enterprise BI platforms charge for what we deliver at infrastructure cost.
+                We build and run your platform at infrastructure cost. You keep the difference.
               </p>
             </div>
             {[
-              { number: "~$150", unit: "CAD/month", label: "Full infrastructure cost — ADF, Data Lake, Azure SQL, Power BI Pro" },
-              { number: "$200K–$500K", unit: "per year", label: "Comparable enterprise platform cost (Anaplan, Adaptive, SAP Analytics)" },
+              { number: "~$150", unit: "CAD/month", label: "What you pay — full infrastructure cost of our platform (ADF, Data Lake, Azure SQL, Power BI Pro)" },
+              { number: "$200K–$500K", unit: "per year", label: "What comparable enterprise platforms charge (Anaplan, Adaptive, SAP Analytics) for the same capability" },
               { number: "60 sec", unit: "or less", label: "Time for a CFO to answer any of 12 questions the ERP cannot touch" },
             ].map((stat, i) => (
               <div key={i} style={{ borderLeft: "3px solid rgba(255,255,255,0.2)", paddingLeft: "28px" }}>
