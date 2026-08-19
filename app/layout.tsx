@@ -3,14 +3,14 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
 import Script from "next/script";
-
 const inter = Inter({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
   title: "What Your ERP Cannot Tell You | C-Suite Intelligence Platform",
   description: "Forward-looking executive intelligence built on top of your ERP data.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
