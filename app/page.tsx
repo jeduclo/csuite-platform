@@ -109,6 +109,7 @@ export default function HomePage() {
           }}>
             We connect your internal ERP data with external macro signals and predictive models
             to give your CFO, CEO and CRO answers they need for making informed decisions - in under 60 seconds.
+            We do not expose your data to AI.
           </p>
 
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "72px" }}>
