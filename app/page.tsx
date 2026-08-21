@@ -390,7 +390,7 @@ export default function HomePage() {
             Ready to see what your data can tell you?
           </h2>
           <p style={{ fontSize: "16px", color: "#64748B", lineHeight: "1.7", marginBottom: "44px" }}>
-            We start with a 30-minute discovery call. No slides. We learn about your data and provide a cost effective architecture that will meet your needs while protecting your data.
+            We start with a 30-minute discovery call. No slides. We learn about your data and provide a cost effective architecture that will meet your needs.
           </p>
           <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
             <a href="https://calendly.com/jeanalegue/30min" style={{
