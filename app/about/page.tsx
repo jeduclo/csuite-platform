@@ -21,7 +21,7 @@ export default function AboutPage() {
         <div style={{ maxWidth: "1100px", margin: "0 auto", position: "relative" }}>
           <div style={{ display: "flex", gap: "64px", alignItems: "flex-start", flexWrap: "wrap" }}>
             <img
-              src="/headshot.jpg"
+              src="/headshot.png"
               alt="Jean Duclos"
               style={{
                 width: "170px", height: "170px", borderRadius: "50%",
