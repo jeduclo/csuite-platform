@@ -108,7 +108,7 @@ export default function HomePage() {
             maxWidth: "560px", marginBottom: "44px",
           }}>
             We connect your internal ERP data with external macro signals and predictive models
-            to give your CFO, CEO and CRO answers they cannot get anywhere else - in under 60 seconds.
+            to give your CFO, CEO and CRO answers they need for making informed decisions - in under 60 seconds.
           </p>
 
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "72px" }}>
@@ -150,7 +150,7 @@ export default function HomePage() {
             The Gap
           </p>
           <h2 style={{ fontSize: "clamp(28px, 3.5vw, 44px)", fontWeight: "800", color: "#0A1628", letterSpacing: "-0.02em", lineHeight: "1.2", maxWidth: "600px", marginBottom: "64px" }}>
-            Every CFO knows the answers aren&apos;t in the ERP.
+            Every CFO knows all the answers aren&apos;t in the ERP.
           </h2>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
@@ -290,7 +290,7 @@ export default function HomePage() {
                 CFO Intelligence App
               </h3>
               <p style={{ fontSize: "14px", color: "#64748B", lineHeight: "1.7", marginBottom: "32px" }}>
-                8 pages. 12 questions your ERP cannot answer. Cash forecasting, covenant tracking,
+                6 pages. 12 questions your ERP cannot answer. Cash forecasting, covenant tracking,
                 customer default scoring, macro signals - all embedded in one dashboard.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "36px" }}>
@@ -328,7 +328,7 @@ export default function HomePage() {
                 Macro Intelligence Dashboard
               </h3>
               <p style={{ fontSize: "14px", color: "#64748B", lineHeight: "1.7", marginBottom: "32px" }}>
-                BoC policy trajectory, yield curve analysis, CPI vs IPPI compression, TSX sector rotation -
+                6 pages. BoC policy trajectory, yield curve analysis, CPI vs IPPI compression, TSX sector rotation -
                 translated into a capital allocation posture your board can act on.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "36px" }}>
@@ -367,7 +367,7 @@ export default function HomePage() {
               </p>
             </div>
             {[
-              { number: "~$150", unit: "CAD/month", label: "What you pay - full infrastructure cost of our platform (ADF, Data Lake, Azure SQL, Power BI Pro)" },
+              { number: "~$150", unit: "CAD/month", label: "What you pay - full infrastructure cost of our platform (ADF, DLT, Data Lake, DuckDB, Azure SQL, DBT, Power BI Pro)" },
               { number: "$200K–$500K", unit: "per year", label: "What comparable enterprise platforms charge (Anaplan, Adaptive, SAP Analytics) for the same capability" },
               { number: "60 sec", unit: "or less", label: "Time for a CFO to answer any of 12 questions the ERP cannot touch" },
             ].map((stat, i) => (
@@ -390,7 +390,7 @@ export default function HomePage() {
             Ready to see what your data can tell you?
           </h2>
           <p style={{ fontSize: "16px", color: "#64748B", lineHeight: "1.7", marginBottom: "44px" }}>
-            We start with a 45-minute discovery call. No slides. We connect to your data and show you three insights your team has never seen before.
+            We start with a 30-minute discovery call. No slides. We learn about your data and provide a cost effective architecture that will meet your needs while protecting your data.
           </p>
           <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
             <a href="https://calendly.com/jeanalegue/30min" style={{

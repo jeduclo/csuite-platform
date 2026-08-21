@@ -47,7 +47,7 @@ export default function AboutPage() {
                 Jean Duclos, PhD
               </h1>
               <p style={{ fontSize: "18px", color: "#94A3B8", lineHeight: "1.7", maxWidth: "600px", marginBottom: "32px" }}>
-                BI Architect and Principal Consultant with 16+ years building analytical platforms
+                Professor, BI Architect and Principal Consultant with 16+ years building Signal Analysis Apps, Macro-Strategy dashboards, analytical platforms
                 that turn raw ERP data into decisions C-suite executives can act on - in minutes, not months.
                 Professor of Macroeconomics and Computational Macro-Strategy at Dawson College, Montréal.
               </p>
@@ -76,14 +76,15 @@ export default function AboutPage() {
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "20px", fontSize: "17px", color: "#334155", lineHeight: "1.8" }}>
             <p>
-              After 16 years designing analytical platforms for mid-market companies across the UK and Canada,
-              I kept seeing the same gap: finance teams drowning in ERP reports that told them what happened last month,
-              while the questions that actually mattered - cash in 90 days, which customers will default, are we heading for a covenant breach -
+              After 16 years designing decision support systems and building analytical platforms for small and mid-market companies,
+              I kept seeing the same gap: teams drowning in ERP reports that told them what happened last month,
+              while the questions that actually mattered - cash in 90 days, which customers will default, are we heading for a covenant breach, 
+              what market risks do we face -
               had no answer.
             </p>
             <p>
               Teaching macroeconomics and computational macro-strategy at Dawson College sharpened my conviction
-              that the tools to answer these questions already exist - they just haven&apos;t been assembled for the mid-market CFO.
+              that the tools to answer these questions already exist - they just haven&apos;t been assembled for the small and mid-market C-Suite.
               I built C-Suite Intelligence to close that gap.
             </p>
             <p>
@@ -228,7 +229,7 @@ export default function AboutPage() {
             Let&apos;s talk about your data.
           </h2>
           <p style={{ fontSize: "16px", color: "#64748B", lineHeight: "1.7", marginBottom: "44px" }}>
-            A 45-minute discovery call. No slides. We connect to your data and show you three insights your team has never seen before.
+             We start with a 30-minute discovery call. No slides. We learn about your data and provide a cost effective architecture that will meet your needs while protecting your data.
           </p>
           <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
             <a href="https://calendly.com/jeanalegue/30min" style={{
