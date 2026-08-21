@@ -21,16 +21,16 @@ export default function AboutPage() {
         <div style={{ maxWidth: "1100px", margin: "0 auto", position: "relative" }}>
           <div style={{ display: "flex", gap: "64px", alignItems: "flex-start", flexWrap: "wrap" }}>
             <img
-              src="/headshot.png"
-              alt="Jean Duclos"
-              style={{
-                width: "170px", height: "170px", borderRadius: "50%",
-                objectFit: "cover",
-                flexShrink: 0,
-                border: "4px solid rgba(255,255,255,0.15)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-              }}
-            />
+                src="/headshot.png"
+                alt="Jean Duclos"
+                style={{
+                  width: "160px", height: "160px", borderRadius: "50%",
+                  objectFit: "cover", objectPosition: "top center",
+                  flexShrink: 0,
+                  border: "4px solid rgba(255,255,255,0.15)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                }}
+              />
             <div style={{ flex: 1, minWidth: "280px" }}>
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: "8px",
