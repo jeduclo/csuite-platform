@@ -25,7 +25,7 @@ export default function AboutPage() {
               alt="Jean Duclos"
               style={{
                 width: "170px", height: "170px", borderRadius: "50%",
-                objectFit: "cover", objectPosition: "top center",
+                objectFit: "cover",
                 flexShrink: 0,
                 border: "4px solid rgba(255,255,255,0.15)",
                 boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
