@@ -20,15 +20,16 @@ export default function AboutPage() {
         }} />
         <div style={{ maxWidth: "1100px", margin: "0 auto", position: "relative" }}>
           <div style={{ display: "flex", gap: "64px", alignItems: "flex-start", flexWrap: "wrap" }}>
-            <div style={{
-              width: "160px", height: "160px", borderRadius: "50%", flexShrink: 0,
-              background: "linear-gradient(135deg, #1D4ED8, #7C3AED)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "56px", fontWeight: "800", color: "#fff",
-              border: "4px solid rgba(255,255,255,0.1)",
-            }}>
-              JD
-            </div>
+            <img
+              src="/headshot.jpg"
+              alt="Jean Duclos"
+              style={{
+                width: "160px", height: "160px", borderRadius: "50%",
+                objectFit: "cover", flexShrink: 0,
+                border: "4px solid rgba(255,255,255,0.15)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+              }}
+            />
             <div style={{ flex: 1, minWidth: "280px" }}>
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: "8px",
